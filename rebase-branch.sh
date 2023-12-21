@@ -32,7 +32,7 @@ if [ "$current_branch" = "$main_branch" ]; then
 fi
 
 # Prompt for the feature branch to rebase, defaulting to the current branch
-echo -n "✏️  Feature branch to rebase onto $main_branch [$current_branch]: "
+echo -n "✏️  Feature branch to rebase onto '$target_branch' [$current_branch]: "
 read input_feature_branch
 feature_branch=${input_feature_branch:-$current_branch}
 
@@ -41,8 +41,15 @@ if [ -z "$feature_branch" ]; then
   exit 1
 fi
 
+# if $main_branch has a value
+if [ -n "$main_branch" ]; then
+  if [ "$feature_branch" = "$main_branch" ]; then
+    echo "⚠️  You are attempting to rewrite '$main_branch' with this rebase. If this was an accident, exit now."
+  fi
+fi
+
 # Confirm the rebase operation
-echo -n "❓ Rewrite $feature_branch to begin from $target_branch? y/n: "
+echo -n "❓ Rewrite '$feature_branch' to begin from '$target_branch'? Y/N: "
 read confirmation
 
 if [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
