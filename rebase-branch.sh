@@ -8,6 +8,11 @@ set -e
 main_origin=$(git branch -r | grep -E "^\s*origin/(main|master)$")
 main_branch=$(basename "$main_origin")
 
+# If it is not either main or master, exit
+if [ "$main_branch" != "main" ] && [ "$main_branch" != "master" ]; then
+  echo "⚠️  Could not find 'main' or 'master' branch."
+fi
+
 # Prompt for the target branch to rebase onto, defaulting to the main branch
 echo -n "✏️  Target branch to rebase onto. Typically main/master [$main_branch]: "
 read input_target_branch
@@ -51,7 +56,6 @@ fi
 # Confirm the rebase operation
 echo -n "❓ Rewrite '$feature_branch' to begin from '$target_branch'? Y/N: "
 read confirmation
-
 if [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
   echo "Rebase cancelled."
   exit 0
