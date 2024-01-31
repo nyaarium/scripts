@@ -69,7 +69,7 @@ fi
 
 # Upgrade packages
 echo ""
-echo "y" | npx npm-check-updates -u
+echo "y" | npx npm-check-updates -u $@
 npm run purge || true
 npm i
 git add .
