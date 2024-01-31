@@ -89,6 +89,7 @@ fi
 
 
 # Push the new branch
+echo ""
 git push -u origin "$main_branch:$new_branch"
 gh_push_status=$?
 if [ $gh_push_status -eq 0 ]; then
@@ -105,6 +106,7 @@ git reset --hard "origin/$main_branch"
 
 if [ -n "$pr_title" ]; then
   # Create the pull request
+  echo ""
   pr_url=$(gh pr create --base "$main_branch" --head "$new_branch" --title "$pr_title" --body "")
   if [ -n "$pr_url" ]; then
     echo "✅ Pull request created: $pr_url"

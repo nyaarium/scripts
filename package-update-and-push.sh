@@ -68,6 +68,7 @@ fi
 
 
 # Upgrade packages
+echo ""
 echo "y" | npx npm-check-updates -u
 npm run purge || true
 npm i
@@ -76,6 +77,7 @@ git commit -m "Package updates"
 
 
 # Push the new branch
+echo ""
 git push -u origin "$main_branch:$new_branch"
 gh_push_status=$?
 if [ $gh_push_status -eq 0 ]; then
@@ -91,16 +93,17 @@ git reset --hard "origin/$main_branch"
 
 
 if [ $gh_ready_status -eq 0 ]; then
-    # Create the pull request
-    pr_title="Package updates"
-    pr_url=$(gh pr create --base "$main_branch" --head "$new_branch" --title "$pr_title" --body "")
-    if [ -n "$pr_url" ]; then
-      echo "✅ Pull request created: $pr_url"
+  # Create the pull request
+  echo ""
+  pr_title="Package updates"
+  pr_url=$(gh pr create --base "$main_branch" --head "$new_branch" --title "$pr_title" --body "")
+  if [ -n "$pr_url" ]; then
+    echo "✅ Pull request created: $pr_url"
 
-      if [ "$auto_merge" = "y" ]; then
-        gh pr merge -m --auto "$pr_url"
-      fi
-    else
-      echo "❌ Failed to create pull request."
+    if [ "$auto_merge" = "y" ]; then
+      gh pr merge -m --auto "$pr_url"
     fi
+  else
+    echo "❌ Failed to create pull request."
+  fi
 fi
