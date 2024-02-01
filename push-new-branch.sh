@@ -36,6 +36,7 @@ if [ -n "$git_status" ]; then
 fi
 
 
+# Configure the pull request / branch
 new_branch=""
 if [ $gh_ready_status -eq 0 ]; then
   echo ""
@@ -66,30 +67,35 @@ fi
 
 
 # Confirm the push operation
-echo ""
-echo -n "❓ Push '$new_branch' to origin? Y/N: "
-read confirmation
-if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
-  git_push="y"
-elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
-  git_push="n"
-else
-  echo "Expected a Y/N answer."
-  exit 1
-fi
-
-# Confirm the auto-merge
-if [ -n "$pr_title" ]; then
+if [ $gh_ready_status -eq 0 ]; then
   echo ""
-  echo -n "❓ Auto-merge pull request? Y/N: "
+  echo -n "❓ Push '$new_branch' to origin? Y/N: "
   read confirmation
   if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
-    auto_merge="y"
+    git_push="y"
   elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
-    auto_merge="n"
+    git_push="n"
   else
     echo "Expected a Y/N answer."
     exit 1
+  fi
+fi
+
+
+# If git_push, confirm the auto-merge
+if [ "$git_push" = "y" ]; then
+  if [ -n "$pr_title" ]; then
+    echo ""
+    echo -n "❓ Auto-merge pull request? Y/N: "
+    read confirmation
+    if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
+      auto_merge="y"
+    elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
+      auto_merge="n"
+    else
+      echo "Expected a Y/N answer."
+      exit 1
+    fi
   fi
 fi
 
@@ -116,17 +122,19 @@ else
 fi
 
 
-if [ -n "$pr_title" ]; then
-  # Create the pull request
-  echo ""
-  pr_url=$(gh pr create --base "$main_branch" --head "$new_branch" --title "$pr_title" --body "")
-  if [ -n "$pr_url" ]; then
-    echo "✅ Pull request created: $pr_url"
+if [ "$git_push" = "y" ]; then
+  if [ -n "$pr_title" ]; then
+    # Create the pull request
+    echo ""
+    pr_url=$(gh pr create --base "$main_branch" --head "$new_branch" --title "$pr_title" --body "")
+    if [ -n "$pr_url" ]; then
+      echo "✅ Pull request created: $pr_url"
 
-    if [ "$auto_merge" = "y" ]; then
-      gh pr merge -m --auto "$pr_url"
+      if [ "$auto_merge" = "y" ]; then
+        gh pr merge -m --auto "$pr_url"
+      fi
+    else
+      echo "❌ Failed to create pull request."
     fi
-  else
-    echo "❌ Failed to create pull request."
   fi
 fi
