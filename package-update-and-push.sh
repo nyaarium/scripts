@@ -43,24 +43,22 @@ echo ""
 echo -n "❓ Push '$new_branch' to origin? Y/N: "
 read confirmation
 if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
-  # Continue
-  echo ""
+  git_push="y"
 elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
-  echo "Push cancelled."
-  exit 0
+  git_push="n"
 else
   echo "Expected a Y/N answer."
   exit 1
 fi
 
-auto_merge="n"
+# Confirm the auto-merge
+echo ""
 echo -n "❓ Auto-merge pull request? Y/N: "
 read confirmation
 if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
   auto_merge="y"
 elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
-  # Continue
-  echo ""
+  auto_merge="n"
 else
   echo "Expected a Y/N answer."
   exit 1
@@ -77,19 +75,23 @@ git commit -m "Package updates"
 
 
 # Push the new branch
-echo ""
-git push -u origin "$main_branch:$new_branch"
-gh_push_status=$?
-if [ $gh_push_status -eq 0 ]; then
-  echo "Branch pushed to origin."
-else
-  echo "Failed to push branch to origin."
-  git branch -u origin/$main_branch
-  exit 1
-fi
+if [ "$git_push" = "y" ]; then
+  echo ""
+  git push -u origin "$main_branch:$new_branch"
+  gh_push_status=$?
+  if [ $gh_push_status -eq 0 ]; then
+    echo "Branch pushed to origin."
+  else
+    echo "Failed to push branch to origin."
+    git branch -u origin/$main_branch
+    exit 1
+  fi
 
-git branch -u "origin/$main_branch"
-git reset --hard "origin/$main_branch"
+  git branch -u "origin/$main_branch"
+  git reset --hard "origin/$main_branch"
+else
+  exit 0
+fi
 
 
 if [ $gh_ready_status -eq 0 ]; then
