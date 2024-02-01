@@ -36,6 +36,11 @@ if [ -n "$git_status" ]; then
 fi
 
 
+pr_title=""
+git_push="n"
+auto_merge="n"
+
+
 # Configure the pull request / branch
 new_branch=""
 if [ $gh_ready_status -eq 0 ]; then
@@ -83,6 +88,7 @@ fi
 
 
 # If git_push, confirm the auto-merge
+$git_push="n"
 if [ "$git_push" = "y" ]; then
   if [ -n "$pr_title" ]; then
     echo ""

@@ -36,6 +36,11 @@ if [ -n "$git_status" ]; then
 fi
 
 
+pr_title=""
+git_push="n"
+auto_merge="n"
+
+
 # Configure the pull request / branch
 new_branch="package-updates"
 
