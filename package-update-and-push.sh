@@ -36,7 +36,7 @@ if [ -n "$git_status" ]; then
 fi
 
 
-pr_title=""
+pr_title="Package updates"
 git_push="n"
 auto_merge="n"
 
@@ -104,11 +104,12 @@ if [ "$git_push" = "y" ]; then
   git branch -u "origin/$main_branch"
   git reset --hard "origin/$main_branch"
 else
-  exit 0
+  git branch "$new_branch"
+  git reset --hard "origin/$main_branch"
+  git checkout "$new_branch"
 fi
 
 
-pr_title="Package updates"
 if [ "$git_push" = "y" ]; then
   if [ -n "$pr_title" ]; then
     # Create the pull request
