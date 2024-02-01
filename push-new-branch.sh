@@ -36,51 +36,57 @@ if [ -n "$git_status" ]; then
 fi
 
 
-echo ""
-echo "✏️  Enter the new branch name:"
-read new_branch
-new_branch=$(echo "$new_branch" | sed -e "s/[^a-zA-Z0-9]/-/g")
+new_branch=""
+if [ $gh_ready_status -eq 0 ]; then
+  echo ""
+  echo "✏️  Pull request title:"
+  read pr_title
+  new_branch=$(echo "$pr_title" | sed -e "s/[^a-zA-Z0-9]/-/g" | tr '[:upper:]' '[:lower:]')
 
-if [ -z "$new_branch" ]; then
-  echo "A branch name is required."
-  exit 0
+  echo ""
+  echo "✏️  Optional branch name (press enter for default):  $new_branch"
+  read entered_branch_name
+  if [ -n "$entered_branch_name" ]; then
+    new_branch=$(echo "$entered_branch_name" | sed -e "s/[^a-zA-Z0-9]/-/g" | tr '[:upper:]' '[:lower:]')
+  fi
+else
+  echo ""
+  echo "✏️  Branch name:"
+  read entered_branch_name
+  new_branch=$(echo "$entered_branch_name" | sed -e "s/[^a-zA-Z0-9]/-/g" | tr '[:upper:]' '[:lower:]')
 fi
-
+if [ -z "$new_branch" ]; then
+  echo "Branch name is required."
+  exit 1
+fi
 if [ "$new_branch" = "main" ] || [ "$new_branch" = "master" ]; then
   echo "Branch name cannot be 'main' or 'master'."
   exit 1
 fi
 
-if [ $gh_ready_status -eq 0 ]; then
-  echo ""
-  echo "✏️  Pull request name (blank to skip):"
-  read pr_title
-fi
 
 # Confirm the push operation
 echo ""
 echo -n "❓ Push '$new_branch' to origin? Y/N: "
 read confirmation
 if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
-  # Continue
-  echo ""
+  git_push="y"
 elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
-  echo "Push cancelled."
-  exit 0
+  git_push="n"
 else
   echo "Expected a Y/N answer."
   exit 1
 fi
 
-auto_merge="n"
+# Confirm the auto-merge
 if [ -n "$pr_title" ]; then
+  echo ""
   echo -n "❓ Auto-merge pull request? Y/N: "
   read confirmation
   if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
     auto_merge="y"
   elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
-    # Continue
-    echo ""
+    auto_merge="n"
   else
     echo "Expected a Y/N answer."
     exit 1
@@ -89,19 +95,25 @@ fi
 
 
 # Push the new branch
-echo ""
-git push -u origin "$main_branch:$new_branch"
-gh_push_status=$?
-if [ $gh_push_status -eq 0 ]; then
-  echo "Branch pushed to origin."
-else
-  echo "Failed to push branch to origin."
-  git branch -u origin/$main_branch
-  exit 1
-fi
+if [ "$git_push" = "y" ]; then
+  echo ""
+  git push -u origin "$main_branch:$new_branch"
+  gh_push_status=$?
+  if [ $gh_push_status -eq 0 ]; then
+    echo "Branch pushed to origin."
+  else
+    echo "Failed to push branch to origin."
+    git branch -u origin/$main_branch
+    exit 1
+  fi
 
-git branch -u "origin/$main_branch"
-git reset --hard "origin/$main_branch"
+  git branch -u "origin/$main_branch"
+  git reset --hard "origin/$main_branch"
+else
+  git branch "$new_branch"
+  git reset --hard "origin/$main_branch"
+  git checkout "$new_branch"
+fi
 
 
 if [ -n "$pr_title" ]; then
