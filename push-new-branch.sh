@@ -88,7 +88,6 @@ fi
 
 
 # If git_push, confirm the auto-merge
-$git_push="n"
 if [ "$git_push" = "y" ]; then
   if [ -n "$pr_title" ]; then
     echo ""
