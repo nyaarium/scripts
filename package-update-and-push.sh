@@ -83,7 +83,11 @@ fi
 echo ""
 echo "y" | npx npm-check-updates -u $@
 npm run purge || true
-npm i
+npm run reinstall-rebuild || true
+success=$?
+if [ $success -eq 0 ]; then
+  npm i
+fi
 git add .
 git commit -m "Package updates"
 
