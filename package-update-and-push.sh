@@ -29,11 +29,36 @@ if [ "$main_branch" != "main" ] && [ "$main_branch" != "master" ]; then
   exit 1
 fi
 
-git_status=$(git status -s)
-if [ -n "$git_status" ]; then
-  echo "⚠️  You have uncommitted changes. Please commit or stash them before running this script."
-  exit 1
+
+# Upgrade packages
+echo ""
+echo "y" | npx npm-check-updates -u $@
+npm run purge || true
+npm run reinstall-rebuild || true
+success=$?
+if [ $success -eq 0 ]; then
+  npm i
 fi
+git add .
+git commit -m "Package updates"
+
+# Wait for user input
+echo ""
+echo ""
+echo "✅  Packages updated. Check that the application still works as expected."
+echo "    Press enter to continue..."
+read -r
+
+
+while true; do
+  git_status=$(git status -s)
+  if [ -n "$git_status" ]; then
+    echo "⚠️  You have uncommitted changes. Please commit or stash them before continuing."
+    exit 1
+  else
+    break
+  fi
+done
 
 
 pr_title="Package updates"
@@ -77,19 +102,6 @@ if [ "$git_push" = "y" ]; then
     fi
   fi
 fi
-
-
-# Upgrade packages
-echo ""
-echo "y" | npx npm-check-updates -u $@
-npm run purge || true
-npm run reinstall-rebuild || true
-success=$?
-if [ $success -eq 0 ]; then
-  npm i
-fi
-git add .
-git commit -m "Package updates"
 
 
 # Push the new branch
