@@ -95,7 +95,7 @@ git commit -m "Package updates"
 # Push the new branch
 if [ "$git_push" = "y" ]; then
   echo ""
-  git push -u origin "$main_branch:$new_branch"
+  git push --force -u origin "$main_branch:$new_branch"
   gh_push_status=$?
   if [ $gh_push_status -eq 0 ]; then
     echo "Branch pushed to origin."
