@@ -72,36 +72,42 @@ new_branch="package-updates"
 
 # Confirm the push operation
 if [ $gh_ready_status -eq 0 ]; then
+  while true; do
   echo ""
   echo -n "❓ Push '$new_branch' to origin? Y/N: "
   read confirmation
   if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
     git_push="y"
+      break
   elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
     git_push="n"
+      break
   else
     echo "Expected a Y/N answer."
-    exit 1
   fi
+  done
 fi
 
 
 # If git_push, confirm the auto-merge
-if [ "$git_push" = "y" ]; then
+while [ "$git_push" = "y" ]; do
   if [ -n "$pr_title" ]; then
     echo ""
     echo -n "❓ Auto-merge pull request? Y/N: "
     read confirmation
     if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
       auto_merge="y"
+      break
     elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
       auto_merge="n"
+      break
     else
       echo "Expected a Y/N answer."
-      exit 1
     fi
+  else
+    break
   fi
-fi
+done
 
 
 # Push the new branch
