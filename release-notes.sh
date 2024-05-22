@@ -5,7 +5,7 @@ source ~/.env
 git diff main... -U10 | \
 jq -sR \
 	--arg prompt "For a release page, explain in markdown bullet points what changes were made. Categorize them into Features, Fixes, Changes, and any other categories that you need. Exclude the code block backticks.\n\n--------\n\n" \
-	--arg model "gpt-4-1106-preview" \
+	--arg model "gpt-4o" \
 	'{
 		model: $model,
 		messages: [

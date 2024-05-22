@@ -5,7 +5,7 @@ source ~/.env
 git diff main... -U10 | \
 jq -sR \
 	--arg prompt "Make up a commit message from the following diffs.\n\n--------\n\n" \
-	--arg model "gpt-4-1106-preview" \
+	--arg model "gpt-4o" \
 	'{
 		model: $model,
 		messages: [
