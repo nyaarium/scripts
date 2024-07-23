@@ -25,10 +25,7 @@ echo "$gh_prs" | while read -r pr; do
   pr_author=$(echo "$pr" | jq -r '.author.login')
 
   if [ "$pr_author" == "app/dependabot" ]; then
-    echo "Enabling auto-merge for PR $pr_number by $pr_author"
     gh pr merge "$pr_number" --auto -m
-
-    echo "Approving PR $pr_number by $pr_author"
     gh pr review --approve "$pr_number"
   fi
 done
