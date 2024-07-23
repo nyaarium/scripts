@@ -6,7 +6,8 @@ source ~/.env
 git diff main... -U10 | \
 jq -sR \
 	--arg prompt "Make up a commit message from the following diffs.\n\n--------\n\n" \
-	--arg model "gpt-4o" \
+	--arg model "gpt-4o-mini" \
+	--arg context_size "16383" \
 	'{
 		model: $model,
 		messages: [
