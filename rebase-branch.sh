@@ -4,6 +4,7 @@ source ~/.env
 
 set -e
 
+
 # Determine if the main branch is named 'main' or 'master'
 main_origin=$(git branch -r | grep -E "^\s*origin/(main|master)$")
 main_branch=$(basename "$main_origin")

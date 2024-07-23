@@ -2,6 +2,7 @@
 
 source ~/.env
 
+
 git diff main... -U10 | \
 jq -sR \
 	--arg prompt "Make up a commit message from the following diffs.\n\n--------\n\n" \
