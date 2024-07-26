@@ -34,7 +34,6 @@ fi
 
 # Fetch open pull requests number, author (app/dependabot), title
 gh_prs=$(gh pr list --limit 100 --state open --json number,author,title | jq -c '.[]')
-echo "$gh_prs"
 
 echo "$gh_prs" | while read -r pr; do
   pr_number=$(echo "$pr" | jq -r '.number')
@@ -44,10 +43,12 @@ echo "$gh_prs" | while read -r pr; do
     pr_title=$(echo "$pr" | jq -r '.title')
 
     if [ "$approve_own" == "n" ]; then
-      [[ "$pr_title" == "Bump js-common from" ]] && continue
-      [[ "$pr_title" == "Bump next-common from" ]] && continue
-      [[ "$pr_title" == "Bump react-controlled-input from" ]] && continue
+      [[ "$pr_title" =~ ^Bump\ js-common\ from ]] && continue
+      [[ "$pr_title" =~ ^Bump\ next-common\ from ]] && continue
+      [[ "$pr_title" =~ ^Bump\ react-controlled-input\ from ]] && continue
     fi
+
+    echo "Approving: [$pr_number] $pr_title"
   
     gh pr merge "$pr_number" --auto -m
     gh pr review --approve "$pr_number"
