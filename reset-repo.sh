@@ -79,5 +79,6 @@ main_branch=$(basename "$main_origin")
 
 git checkout -B $main_branch
 git reset --soft origin/main
+git branch --set-upstream-to=origin/$main_branch
 git reset -q
 git status -s
