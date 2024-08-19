@@ -23,7 +23,8 @@ fi
 # Confirm the reset operation
 while true; do
 	echo ""
-	echo "❓ Resetting the repo will destroy all unpushed branches and stashes."
+	echo "❓ Resetting the repo will DESTROY all unpushed branches and stashes."
+	echo "   Currently modified files will be left untouched."
 	echo "       Dir: $PWD"
 	if [ "$is_repo_initialized" = "true" ]; then
 		echo "       URL: $repo_url"
