@@ -43,10 +43,10 @@ echo "$gh_prs" | while read -r pr; do
     pr_title=$(echo "$pr" | jq -r '.title')
 
     if [ "$approve_own" == "n" ]; then
-      [[ "$pr_title" =~ \ js-common\ from ]] && continue
-      [[ "$pr_title" =~ \ next-common\ from ]] && continue
-      [[ "$pr_title" =~ \ react-controlled-input\ from ]] && continue
-      [[ "$pr_title" =~ \ react-layout-engine\ from ]] && continue
+      [[ "$pr_title" =~ " js-common from" ]] && continue
+      [[ "$pr_title" =~ " next-common from" ]] && continue
+      [[ "$pr_title" =~ " react-controlled-input from" ]] && continue
+      [[ "$pr_title" =~ " react-layout-engine from" ]] && continue
     fi
 
     echo "Approving: [$pr_number] $pr_title"
