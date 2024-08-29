@@ -2,11 +2,47 @@
 
 source ~/.env
 
-set -e
-
 
 git fetch --prune
+if [[ $? -ne 0 ]]; then
+	echo "⚠️  Error fetching remote branches."
+	exit 1
+fi
 
-for branch in $(git branch --merged | grep -v "^\*"); do
-	git branch -d "$branch"
-done
+echo ""
+
+
+branches=$(git branch -vv | grep -v "^\*")
+while IFS= read -r line; do
+    branch_name=$(echo "$line" | awk '{print $1}')
+    origin=$(echo "$line" | grep -o '\[.*\]' | awk -F'[][]' '{print $2}')
+    origin_branch=$(echo "$origin" | awk -F': ' '{print $1}')
+    ahead_behind=$(echo "$origin" | awk -F': ' '{print $2}')
+
+	if [[ -z "$origin_branch" ]]; then
+		# Local branch. Try to delete it
+		
+		git branch -d "$branch_name" > /dev/null 2>&1
+		if [[ $? -ne 0 ]]; then
+			echo "⚠️  Local branch has not been pushed yet:  $branch_name"
+		else
+			echo "🗑️  Local branch deleted:  $branch_name"
+		fi
+    elif [[ "$ahead_behind" == *ahead* ]]; then
+		# Ahead of remote branch
+		echo "⚠️  Tracked branch has unpushed commits:  $branch_name"
+    else
+		# No work on branch
+		git branch -d "$branch_name" > /dev/null 2>&1
+		if [[ $? -ne 0 ]]; then
+			echo "⚠️  Error deleting tracked branch:  $branch_name"
+		else
+			echo "🗑️  Tracked branch deleted:  $branch_name"
+		fi
+    fi
+done <<< "$branches"
+
+
+echo ""
+
+git branch -l
