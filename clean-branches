@@ -36,6 +36,10 @@ while IFS= read -r line; do
     elif [[ "$ahead_behind" == *ahead* ]]; then
 		# Ahead of remote branch
 		echo "⚠️  Tracked branch has unpushed commits:  $branch_name"
+    elif [[ "$ahead_behind" == *gone* ]]; then
+		# Deleted remote branch
+		git branch -D "$branch_name" > /dev/null 2>&1
+		echo "🗑️  Tracked branch deleted:  $branch_name"
     else
 		# No work on branch
 		git branch -d "$branch_name" > /dev/null 2>&1
