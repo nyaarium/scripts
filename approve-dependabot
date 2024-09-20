@@ -9,14 +9,33 @@ while true; do
     read confirmation
     if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
       approve_own="y"
-        break
+      break
     elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
       approve_own="n"
-        break
+      break
     else
       echo "Expected a Y/N answer."
     fi
 done
+
+
+while true; do
+    echo ""
+    echo -n "❓ Approve dist/ update? Y/N: "
+    read confirmation
+    if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
+      approve_dist="y"
+      break
+    elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
+      approve_dist="n"
+      break
+    else
+      echo "Expected a Y/N answer."
+    fi
+done
+
+
+echo ""
 
 
 # Check if GitHub CLI is ready
@@ -38,10 +57,10 @@ gh_prs=$(gh pr list --limit 100 --state open --json number,author,title | jq -c 
 echo "$gh_prs" | while read -r pr; do
   pr_number=$(echo "$pr" | jq -r '.number')
   pr_author=$(echo "$pr" | jq -r '.author.login')
+  pr_title=$(echo "$pr" | jq -r '.title')
 
+  # Dependabot
   if [ "$pr_author" == "app/dependabot" ]; then
-    pr_title=$(echo "$pr" | jq -r '.title')
-
     if [ "$approve_own" == "n" ]; then
       [[ "$pr_title" =~ " js-common from" ]] && continue
       [[ "$pr_title" =~ " next-common from" ]] && continue
@@ -50,8 +69,18 @@ echo "$gh_prs" | while read -r pr; do
     fi
 
     echo "Approving: [$pr_number] $pr_title"
-  
+
     gh pr merge "$pr_number" --auto -m
     gh pr review --approve "$pr_number"
+  fi
+
+  # Update dist/ files
+  if [ "$approve_dist" == "y" ]; then
+    if [[ "$pr_title" =~ "Update dist/ files" ]]; then
+      echo "Approving: [$pr_number] $pr_title"
+
+      gh pr merge "$pr_number" --auto -m
+      gh pr review --approve "$pr_number"
+    fi
   fi
 done
