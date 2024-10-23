@@ -1,0 +1,23 @@
+#!/bin/bash
+
+source ~/.env
+
+
+command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1
+gh_ready_status=$?
+if [ $gh_ready_status -ne 0 ]; then
+  command -v gh >/dev/null
+  if [ $? -ne 0 ]; then
+    echo "⚠️  GitHub CLI is not installed. Exiting script."
+  else
+    echo "⚠️  GitHub CLI is not authenticated. Exiting script."
+  fi
+  exit 1
+fi
+
+
+# Fetch open code scanning alerts
+gh api -X GET /repos/:owner/:repo/code-scanning/alerts \
+  --paginate \
+  --jq '.[] | select(.state == "open") | [.number, .rule.id, .rule.description] | @tsv' \
+  | column -t
