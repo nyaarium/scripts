@@ -16,8 +16,8 @@ if [ $gh_ready_status -ne 0 ]; then
 fi
 
 
-# Fetch open code scanning alerts
-gh api -X GET /repos/:owner/:repo/code-scanning/alerts \
+alerts=$(gh api -X GET /repos/:owner/:repo/code-scanning/alerts \
   --paginate \
-  --jq '.[] | select(.state == "open") | [.number, .rule.id, .rule.description] | @tsv' \
-  | column -t
+  --jq '.[] | select(.state == "open") | [.number, .rule.id, .rule.description, .most_recent_instance.message.text] | @tsv')
+
+echo "$alerts" | column -t
