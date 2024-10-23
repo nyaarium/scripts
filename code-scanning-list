@@ -20,4 +20,16 @@ alerts=$(gh api -X GET /repos/:owner/:repo/code-scanning/alerts \
   --paginate \
   --jq '.[] | select(.state == "open") | [.number, .rule.id, .rule.description, .most_recent_instance.message.text] | @tsv')
 
-echo "$alerts" | column -t
+# Check if the API call was successful
+if [ $? -ne 0 ]; then
+  echo "⚠️  Failed to retrieve alerts. Ensure Advanced Security is enabled for this repository."
+  exit 1
+fi
+
+echo "$alerts" | while IFS=$'\t' read -r number rule_id rule_description message; do
+  echo "-----------------------------"
+  echo "Alert Number: $number"
+  echo "Rule ID: $rule_id"
+  echo "Description: $rule_description"
+  echo "Message: $message"
+done
