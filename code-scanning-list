@@ -15,21 +15,28 @@ if [ $gh_ready_status -ne 0 ]; then
   exit 1
 fi
 
+# Check if a parameter is passed
+alert_id="$1"
+if [ -z "$alert_id" ]; then
+  # No parameter passed, perform default paginated listing of alerts
+  alerts=$(gh api -X GET /repos/:owner/:repo/code-scanning/alerts \
+    --paginate \
+    --jq '.[] | select(.state == "open") | [.number, .rule.id, .rule.description, .most_recent_instance.message.text] | @tsv')
 
-alerts=$(gh api -X GET /repos/:owner/:repo/code-scanning/alerts \
-  --paginate \
-  --jq '.[] | select(.state == "open") | [.number, .rule.id, .rule.description, .most_recent_instance.message.text] | @tsv')
+  # Check if the API call was successful
+  if [ $? -ne 0 ]; then
+    echo "⚠️  Failed to retrieve alerts. Ensure Advanced Security is enabled for this repository."
+    exit 1
+  fi
 
-# Check if the API call was successful
-if [ $? -ne 0 ]; then
-  echo "⚠️  Failed to retrieve alerts. Ensure Advanced Security is enabled for this repository."
-  exit 1
+  echo "$alerts" | while IFS=$'\t' read -r number rule_id rule_description message; do
+    echo "-----------------------------"
+    echo "Alert Number: $number"
+    echo "Rule ID: $rule_id"
+    echo "Description: $rule_description"
+    echo "Message: $message"
+  done
+
+else
+  # ID parameter passed
 fi
-
-echo "$alerts" | while IFS=$'\t' read -r number rule_id rule_description message; do
-  echo "-----------------------------"
-  echo "Alert Number: $number"
-  echo "Rule ID: $rule_id"
-  echo "Description: $rule_description"
-  echo "Message: $message"
-done
