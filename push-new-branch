@@ -29,6 +29,8 @@ if [ "$main_branch" != "main" ] && [ "$main_branch" != "master" ]; then
   exit 1
 fi
 
+current_branch=$(git branch --show-current)
+
 git_status=$(git status -s)
 if [ -n "$git_status" ]; then
   echo "⚠️  You have uncommitted changes. Please commit or stash them before running this script."
@@ -37,7 +39,7 @@ fi
 
 
 pr_title=""
-git_push="n"
+create_pr="n"
 auto_merge="n"
 
 
@@ -47,7 +49,11 @@ if [ $gh_ready_status -eq 0 ]; then
   echo ""
   echo "✏️  Pull request title:"
   read pr_title
-  new_branch=$(echo "$pr_title" | sed -e "s/[^a-zA-Z0-9]/-/g" | tr '[:upper:]' '[:lower:]')
+  if [ "$current_branch" = "$main_branch" ]; then
+    new_branch=$(echo "$pr_title" | sed -e "s/[^a-zA-Z0-9]/-/g" | tr '[:upper:]' '[:lower:]')
+  else
+    new_branch="$current_branch"
+  fi
 
   echo ""
   echo "✏️  Optional branch name (press enter for default):  $new_branch"
@@ -59,7 +65,11 @@ else
   echo ""
   echo "✏️  Branch name:"
   read entered_branch_name
-  new_branch=$(echo "$entered_branch_name" | sed -e "s/[^a-zA-Z0-9]/-/g" | tr '[:upper:]' '[:lower:]')
+  if [ -n "$entered_branch_name" ]; then
+    new_branch=$(echo "$entered_branch_name" | sed -e "s/[^a-zA-Z0-9]/-/g" | tr '[:upper:]' '[:lower:]')
+  elif [ "$current_branch" != "$main_branch" ]; then
+    new_branch="$current_branch"
+  fi
 fi
 if [ -z "$new_branch" ]; then
   echo "Branch name is required."
@@ -71,17 +81,17 @@ if [ "$new_branch" = "main" ] || [ "$new_branch" = "master" ]; then
 fi
 
 
-# Confirm the push operation
+# Confirm pull request creation
 while true; do
 if [ $gh_ready_status -eq 0 ]; then
   echo ""
-  echo -n "❓ Push '$new_branch' to origin? Y/N: "
+  echo -n "❓ Create pull request? Y/N: "
   read confirmation
   if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
-    git_push="y"
+    create_pr="y"
       break
   elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
-    git_push="n"
+    create_pr="n"
       break
   else
     echo "Expected a Y/N answer."
@@ -90,58 +100,63 @@ fi
 done
 
 
-# If git_push, confirm the auto-merge
-while [ "$git_push" = "y" ] && [ -n "$pr_title" ]; do
+# If creating PR, confirm the auto-merge
+while [ "$create_pr" = "y" ] && [ -n "$pr_title" ]; do
     echo ""
     echo -n "❓ Auto-merge pull request? Y/N: "
     read confirmation
     if [ "$confirmation" = "y" ] || [ "$confirmation" = "Y" ]; then
       auto_merge="y"
-    break
+      break
     elif [ "$confirmation" = "n" ] || [ "$confirmation" = "N" ]; then
       auto_merge="n"
-    break
+      break
     else
       echo "Expected a Y/N answer."
-  fi
+    fi
 done
 
 
-# Push the new branch
-if [ "$git_push" = "y" ]; then
-  echo ""
-  git push -u origin "$main_branch:$new_branch"
-  gh_push_status=$?
-  if [ $gh_push_status -eq 0 ]; then
-    echo "Branch pushed to origin."
-  else
-    echo "Failed to push branch to origin."
-    git branch -u origin/$main_branch
-    exit 1
-  fi
+# Always push the new branch
+echo ""
 
+if [ "$current_branch" = "$main_branch" ]; then
+  # On main/master. push main to new branch
+  git push -u origin "$main_branch:$new_branch"
   git branch -u "origin/$main_branch"
   git reset --hard "origin/$main_branch"
+
+  if [ "$create_pr" = "n" ]; then
+    # Don't create a PR, just push and checkout to it
+    git checkout "$new_branch"
+  fi
 else
-  git branch "$new_branch"
-  git reset --hard "origin/$main_branch"
-  git checkout "$new_branch"
+  # On feature branch. push current branch to new branch name
+  git push -u origin "$current_branch:$new_branch"
+fi
+
+gh_push_status=$?
+if [ $gh_push_status -eq 0 ]; then
+  echo "Branch pushed to origin."
+else
+  echo "Failed to push branch to origin."
+  git branch -u origin/$main_branch
+  exit 1
 fi
 
 
-if [ "$git_push" = "y" ]; then
-  if [ -n "$pr_title" ]; then
-    # Create the pull request
-    echo ""
-    pr_url=$(gh pr create --base "$main_branch" --head "$new_branch" --title "$pr_title" --body "")
-    if [ -n "$pr_url" ]; then
-      echo "✅ Pull request created: $pr_url"
+# Create pull request if requested
+if [ "$create_pr" = "y" ] && [ -n "$pr_title" ]; then
+  # Create the pull request
+  echo ""
+  pr_url=$(gh pr create --base "$main_branch" --head "$new_branch" --title "$pr_title" --body "")
+  if [ -n "$pr_url" ]; then
+    echo "✅ Pull request created: $pr_url"
 
-      if [ "$auto_merge" = "y" ]; then
-        gh pr merge -m --auto "$pr_url"
-      fi
-    else
-      echo "❌ Failed to create pull request."
+    if [ "$auto_merge" = "y" ]; then
+      gh pr merge -m --auto "$pr_url"
     fi
+  else
+    echo "❌ Failed to create pull request."
   fi
 fi
