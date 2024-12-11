@@ -35,7 +35,7 @@ fi
 # Summarize history
 printf '%s\n' "$GIT_LOG" | \
 jq -sR \
-	--arg prompt "Summarize the following commit messages.\n\n--------\n\n" \
+	--arg prompt "Summarize the following commit history in list format.\n\n--------\n\n" \
 	--arg model "gpt-4o-mini" \
 	--arg context_size "16383" \
 	'{
