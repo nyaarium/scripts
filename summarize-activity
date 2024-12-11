@@ -3,8 +3,11 @@
 source ~/.env
 
 
+REPO_NAME=$(git remote get-url origin | sed -E 's/.*github.com[:/]([^/]+\/[^.]+)(\.git)?$/\1/')
+
 while true; do
     echo ""
+    echo "   Repo: $REPO_NAME"
     echo -n "❓ How many days of history to look up? Enter a number: "
     read days
     if [ -n "$days" ]; then
@@ -13,6 +16,9 @@ while true; do
         echo "Expected a number."
     fi
 done
+echo ""
+
+
 
 
 GIT_LOG=$(git log --author="nyaarium" --since="$days days ago" --pretty=format:"%s")
