@@ -54,7 +54,7 @@ else
   # Call GPT API
   response=$(echo "$input_string" | jq -sR \
   --arg prompt "Respond with \"out-of-scope - {REASON}\" or \"within-scope - {REASON}\". Take a look at this CVE alert and decide if it's something within scope to fix, or out-of-scope (simply wait for package maintainers to fix)\n\nI will not change out packages willy-nilly, so don't recommend package swapping unless it is required (abandoned repos).\n\n" \
-  --arg model "gpt-4o-mini" \
+  --arg model "gpt-4o" \
   --arg context_size "16383" \
   '{
     model: $model,

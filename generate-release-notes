@@ -18,7 +18,7 @@ fi
 printf '%s\n' "$DIFF" | \
 jq -sR \
 	--arg prompt "This is the real diff. Do it for real now:\n\n" \
-	--arg model "gpt-4o-mini" \
+	--arg model "gpt-4o" \
 	--arg context_size "16383" \
 	'{
 		model: $model,
