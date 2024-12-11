@@ -27,9 +27,15 @@ jq -sR \
 			{ role: "user", content: ($prompt + .) }
 		]
 	}' | \
-curl -sSL -X POST "https://api.openai.com/v1/chat/completions" \
+JSON=$(curl -sSL -X POST "https://api.openai.com/v1/chat/completions" \
 	-H "Content-Type: application/json" \
 	-H "Authorization: Bearer $OPENAI_KEY" \
-	--data @- | \
-jq -r '.choices[0].message.content'
-
+	--data @-)
+if [ $? -ne 0 ]; then
+	printf '%s\n' "$JSON"
+	echo "\n"
+	echo "Error calling OpenAI API."
+	exit 1
+else
+	printf '%s\n' "$JSON" | jq -r '.choices[0].message.content'
+fi
