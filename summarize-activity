@@ -15,7 +15,19 @@ while true; do
 done
 
 
-git log --author="nyaarium" --since="$days days ago" --pretty=format:"%s" | \
+GIT_LOG=$(git log --author="nyaarium" --since="$days days ago" --pretty=format:"%s")
+
+# Check if there are any commits
+if [ -z "$GIT_LOG" ]; then
+	echo "No commits found."
+	exit 0
+fi
+
+# Display
+# printf '%s\n' "$GIT_LOG"
+
+# Summarize history
+printf '%s\n' "$GIT_LOG" | \
 jq -sR \
 	--arg prompt "Summarize the following commit messages.\n\n--------\n\n" \
 	--arg model "gpt-4o-mini" \

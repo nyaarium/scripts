@@ -3,7 +3,19 @@
 source ~/.env
 
 
-git diff main... -U10 | \
+DIFF=$(git diff origin/main -U10)
+
+# Check if there are any changes
+if [ -z "$DIFF" ]; then
+	echo "No changes found."
+	exit 0
+fi
+
+# Display
+# printf '%s\n' "$DIFF"
+
+# Create release notes
+printf '%s\n' "$DIFF" | \
 jq -sR \
 	--arg prompt "For a release page, explain in markdown bullet points what changes were made. Categorize them into Features, Fixes, Changes, and any other categories that you need. Exclude the code block backticks.\n\n--------\n\n" \
 	--arg model "gpt-4o-mini" \
@@ -11,7 +23,7 @@ jq -sR \
 	'{
 		model: $model,
 		messages: [
-			{ role: "system", content: "You are an API. Only respond with the PLAIN TEXT response. As an API, do not repeat the request question given, and do not explain or comment on anything more than necessary." },
+			{ role: "system", content: "You are an API. Only respond with the PLAIN TEXT response. As an API, do not repeat the request question given, and do not explain or comment on anything more than necessary. Use the format below.\\n\\n---\\n\\n**Features**\\n  - List new features that the user will see. Not backend tools and helpers.\\n\\n**Changes**\\n  - List changes that the user will  encounter. Not refactors.\\n\\n**Fixes**\\n  - List fixed bugs that the user could have encountered. Not hidden backend things." },
 			{ role: "user", content: ($prompt + .) }
 		]
 	}' | \
