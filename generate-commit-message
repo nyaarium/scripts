@@ -15,7 +15,7 @@ fi
 # printf '%s\n' "$DIFF"
 
 # Create commit message
-printf '%s\n' "$DIFF" | \
+JSON=$(printf '%s\n' "$DIFF" | \
 jq -sR \
 	--arg prompt "Make up a commit message from the following diffs.\n\n--------\n\n" \
 	--arg model "gpt-4o" \
@@ -27,7 +27,7 @@ jq -sR \
 			{ role: "user", content: ($prompt + .) }
 		]
 	}' | \
-JSON=$(curl -sSL -X POST "https://api.openai.com/v1/chat/completions" \
+curl -sSL -X POST "https://api.openai.com/v1/chat/completions" \
 	-H "Content-Type: application/json" \
 	-H "Authorization: Bearer $OPENAI_KEY" \
 	--data @-)

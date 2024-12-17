@@ -33,7 +33,7 @@ fi
 # printf '%s\n' "$GIT_LOG"
 
 # Summarize history
-printf '%s\n' "$GIT_LOG" | \
+JSON=$(printf '%s\n' "$GIT_LOG" | \
 jq -sR \
 	--arg prompt "\n" \
 	--arg model "gpt-4o" \
@@ -45,7 +45,7 @@ jq -sR \
 			{ role: "user", content: ($prompt + .) }
 		]
 	}' | \
-JSON=$(curl -sSL -X POST "https://api.openai.com/v1/chat/completions" \
+curl -sSL -X POST "https://api.openai.com/v1/chat/completions" \
 	-H "Content-Type: application/json" \
 	-H "Authorization: Bearer $OPENAI_KEY" \
 	--data @-)
