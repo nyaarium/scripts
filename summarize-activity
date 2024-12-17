@@ -36,12 +36,11 @@ fi
 JSON=$(printf '%s\n' "$GIT_LOG" | \
 jq -sR \
 	--arg prompt "\n" \
-	--arg model "gpt-4o" \
-	--arg context_size "16383" \
+	--arg model "o1-preview" \
 	'{
 		model: $model,
 		messages: [
-			{ role: "system", content: "You are an API. Only respond with the PLAIN TEXT response. As an API, do not repeat the request question given, and do not explain or comment on anything more than necessary.\n\nYou are given a long commit history. Summarize the user'\''s general activities and contributions in list format. For generic repeats like merging Dependabot PRs, combine them and give an estimated count in words (like \"over a hundred\"). Sort the contributions by most significant." },
+			{ role: "user", content: "You are an API. Only respond with the PLAIN TEXT response. As an API, do not repeat the request question given, and do not explain or comment on anything more than necessary.\n\nYou are given a long commit history. Summarize the user'\''s general activities and contributions in unordered list format. For generic repeats like merging Dependabot PRs, combine them and give an estimated count in words (like \"over a hundred\", or \"extensive\"). Sort the contributions by most significant." },
 			{ role: "user", content: ($prompt + .) }
 		]
 	}' | \
