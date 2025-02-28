@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
 
-            apt install -y unison
+            apt install -y unison encfs
             echo ""
 
             # Check if metadata option exists
