@@ -1,0 +1,88 @@
+#!/bin/bash
+
+set -e
+
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: This script must be run as root"
+    echo "  sudo $(basename "$0") <service-name> <...>"
+    exit 1
+fi
+
+# Check for required arguments
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $(basename "$0") <service-name> <...>"
+    echo "  <service-name>   Alphanumeric name for the service (ex: vintage-story-server)"
+    echo "  <...>            Command to run"
+    exit 1
+fi
+
+SERVICE_NAME="$1"
+SERVICE_NAME=$(echo "$SERVICE_NAME" | sed -e "s/[^a-zA-Z0-9]/-/g" | tr '[:upper:]' '[:lower:]')
+shift
+
+# Use "$@" instead of "$*" to preserve quotes
+START_COMMAND_FULL=""
+for arg in "$@"; do
+    if [[ "$START_COMMAND_FULL" == "" ]]; then
+		START_SCRIPT="$arg"
+    	START_SCRIPT=$(realpath "$START_SCRIPT")
+        START_COMMAND_FULL="\"$START_SCRIPT\""
+    else
+		START_COMMAND_FULL="$START_COMMAND_FULL \"$arg\""
+    fi
+done
+
+
+# Check if service already exists
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+if [ -f "$SERVICE_FILE" ]; then
+    echo "Error: Service '$SERVICE_NAME' already exists at $SERVICE_FILE"
+    exit 1
+fi
+
+
+# Create service file
+cat > "$SERVICE_FILE" << EOF
+[Unit]
+Description=$SERVICE_NAME
+
+[Service]
+ExecStart=$START_COMMAND_FULL
+# ExecStop=/path/to/stop.sh
+TimeoutStopSec=30
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Set permissions
+chmod 644 "$SERVICE_FILE"
+chown root:root "$SERVICE_FILE"
+
+echo ""
+systemctl daemon-reload
+systemctl enable $SERVICE_NAME
+
+echo ""
+echo "================================================"
+echo "==  Service: $SERVICE_FILE"
+echo "==  Start: $START_COMMAND_FULL"
+echo "================================================"
+echo ""
+echo "To start, run:"
+echo "  systemctl start $SERVICE_NAME"
+echo ""
+echo "To edit, run:"
+echo "  vi $SERVICE_FILE && systemctl daemon-reload"
+echo ""
+
+# Open the service file with the first available editor
+if command -v cursor &> /dev/null; then
+    cursor "$SERVICE_FILE"
+elif command -v code &> /dev/null; then
+    code "$SERVICE_FILE"
+elif command -v vi &> /dev/null; then
+    vi "$SERVICE_FILE"
+fi
