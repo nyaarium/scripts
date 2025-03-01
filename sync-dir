@@ -70,6 +70,10 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
+if [ "$EUID" -eq 0 ]; then
+    export HOME="/root"
+fi
+
 DIR_A="$1"
 DIR_B="$2"
 
