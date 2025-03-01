@@ -127,7 +127,46 @@ echo "  $DIR_A"
 echo "  $DIR_B"
 echo ""
 
+# Define termination handler
+_term() {
+    echo "Caught kill signal! Gracefully stopping sync."
 
+    kill -TERM $UNISON_PID 2>/dev/null || true
+
+    was_gracefully_killed=true
+    
+    # Wait for sync to stop
+    for i in {1..25}; do
+        if ! kill -0 "$UNISON_PID" 2>/dev/null; then
+            break
+        fi
+        sleep 1
+    done
+
+    # Force kill if still running
+    if kill -0 "$UNISON_PID" 2>/dev/null; then
+        kill -9 "$UNISON_PID" || true
+    fi
+
+    if $was_gracefully_killed; then
+        echo "Sync interrupted."
+    else
+        echo "Sync forcefully stopped."
+    fi
+
+    # Exit with status 0 if in watch mode, otherwise exit with status 1
+    if [ -n "$WATCH_INTERVAL" ]; then
+        exit 0
+    else
+        exit 1
+    fi
+}
+trap _term TERM INT
+
+# Initialize variable for graceful termination tracking
+was_gracefully_killed=false
+
+# Run unison sync in background
 nice -n 19 ionice -c 3 \
     unison "$DIR_A" "$DIR_B" \
     -batch \
@@ -142,4 +181,10 @@ nice -n 19 ionice -c 3 \
     -ui text \
     ${WATCH_INTERVAL:+"-watch"} \
     ${WATCH_INTERVAL:+"-repeat"} \
-    ${WATCH_INTERVAL:+"$WATCH_INTERVAL"}
+    ${WATCH_INTERVAL:+"$WATCH_INTERVAL"} \
+    2>&1 &
+
+UNISON_PID=$!
+
+# Wait for the unison process to complete
+wait $UNISON_PID
