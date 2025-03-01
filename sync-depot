@@ -192,6 +192,7 @@ nice -n 19 ionice -c 3 \
     -rsync \
     -ui text \
     ${WATCH_INTERVAL:+"-watch"} \
+    ${WATCH_INTERVAL:+"-terse"} \
     ${WATCH_INTERVAL:+"-repeat"} \
     ${WATCH_INTERVAL:+"$WATCH_INTERVAL"} \
     2>&1 &

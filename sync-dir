@@ -126,6 +126,7 @@ rm -f "$TEST_FILE_A" "$TEST_FILE_B"
 DIR_A=$(realpath "$DIR_A")
 DIR_B=$(realpath "$DIR_B")
 
+echo ""
 echo "Starting bidirectional sync between:"
 echo "  $DIR_A"
 echo "  $DIR_B"
@@ -179,6 +180,7 @@ nice -n 19 ionice -c 3 \
     -rsync \
     -ui text \
     ${WATCH_INTERVAL:+"-watch"} \
+    ${WATCH_INTERVAL:+"-terse"} \
     ${WATCH_INTERVAL:+"-repeat"} \
     ${WATCH_INTERVAL:+"$WATCH_INTERVAL"} \
     2>&1 &
