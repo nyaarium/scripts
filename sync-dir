@@ -154,12 +154,7 @@ _term() {
         echo "Sync forcefully stopped."
     fi
 
-    # Exit with status 0 if in watch mode, otherwise exit with status 1
-    if [ -n "$WATCH_INTERVAL" ]; then
-        exit 0
-    else
-        exit 1
-    fi
+    exit 0
 }
 trap _term TERM INT
 
