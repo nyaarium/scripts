@@ -61,6 +61,8 @@ EOF
 chmod 644 "$SERVICE_FILE"
 chown root:root "$SERVICE_FILE"
 
+ln -sf "$SERVICE_FILE" "/root/${SERVICE_NAME}.service"
+
 echo ""
 systemctl daemon-reload
 systemctl enable $SERVICE_NAME
