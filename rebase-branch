@@ -67,4 +67,5 @@ if [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
 fi
 
 # Perform the rebase
+echo "git rebase --committer-date-is-author-date --onto "$target_branch" "$(git merge-base "$feature_branch" "$target_branch")" "$feature_branch""
 git rebase --committer-date-is-author-date --onto "$target_branch" "$(git merge-base "$feature_branch" "$target_branch")" "$feature_branch"
