@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Help function
+show_help() {
+	echo "Usage: query-openai"
+	echo ""
+	echo "Options:"
+	echo "  --help     Show this help message"
+	echo "  -h         Show this help message"
+	echo ""
+	echo "This script queries OpenAI's API using system and query files."
+	echo "Required files:"
+	echo "  /tmp/system.md  - System prompt (persistent)"
+	echo "  /tmp/query.md   - Query prompt (deleted after use)"
+	echo "  $SCRIPT_DIR/.openai.key - OpenAI API key"
+}
+
+# Check for help flag
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+	show_help
+	exit 0
+fi
+
+if [ ! -f "$SCRIPT_DIR/.openai.key" ]; then
+	echo "OpenAI key not found. Create it at: $SCRIPT_DIR/.openai.key"
+	exit 1
+fi
+
+quit=false
+
+if [ ! -f /tmp/system.md ]; then
+	echo "System file not found. Create it at: `/tmp/system.md`. This file will remain the same until you change it."
+	quit=true
+fi
+
+if [ ! -f /tmp/query.md ]; then
+	echo "Query file not found. Create it at: `/tmp/query.md`. This file will DELETE upon a successful return. You must re-create it after each run."
+	quit=true
+fi
+
+if [ "$quit" = true ]; then
+	exit 1
+fi
+
+OPENAI_KEY=$(cat "$SCRIPT_DIR/.openai.key" | tr -d '\n')
+
+JSON=$(jq -n \
+	--arg system "$(cat /tmp/system.md)" \
+	--arg query "$(cat /tmp/query.md)" \
+	'{
+		model: "gpt-4o",
+		input: ($system + "\n\n" + $query),
+		tools: [
+			{
+				"type": "web_search_preview",
+				"user_location": {
+					"type": "approximate",
+					"timezone": "America/Los_Angeles"
+				},
+				"search_context_size": "high"
+			}
+		]
+	}')
+
+bash -x -c 'printf "%s\n" "$1" | \
+curl --max-time 300 -sSL -X POST "https://api.openai.com/v1/responses" \
+	-H "Content-Type: application/json" \
+	-H "Authorization: Bearer $2" \
+	--data @- | \
+	jq -r ".output[] | select(.type == \"message\") | .content[0].text"' _ "$JSON" "$OPENAI_KEY" \
+	2>&1 | grep -v '^+'
+
+if [ $? -ne 0 ]; then
+	echo "Error calling OpenAI API."
+	exit 1
+else
+	rm /tmp/query.md
+fi
