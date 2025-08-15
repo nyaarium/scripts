@@ -1,0 +1,7 @@
+{
+  "name": "scripts",
+  "type": "module",
+  "dependencies": {
+    "ansis": "^4.1.0"
+  }
+}
