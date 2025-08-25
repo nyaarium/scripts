@@ -82,13 +82,34 @@ mcpServer.registerTool(
 					"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
 				),
 			prId: z.string().describe("The pull request number to fetch."),
+			outputPath: z
+				.string()
+				.optional()
+				.describe(
+					"Optional path to write JSON output (relative or absolute). If provided, returns path info instead of full data.",
+				),
 		},
 	},
-	async ({ repo, prId }) => {
+	async ({ repo, prId, outputPath }) => {
 		return await new Promise((resolve) => {
 			const cmdPath = path.join(scriptDir, "github-fetch-pr");
 
-			const args = repo ? [repo, prId] : [prId];
+			// Build arguments array - order doesn't matter for the new parser
+			let args = [];
+
+			// Add repo if provided (must contain exactly one slash)
+			if (repo) {
+				args.push(repo);
+			}
+
+			// Add prId (must be numeric)
+			args.push(prId);
+
+			// Add output path if provided (with --output-path flag)
+			if (outputPath) {
+				args.push("--output-path", outputPath);
+			}
+
 			const child = spawn(cmdPath, args, {
 				stdio: ["ignore", "pipe", "pipe"],
 			});

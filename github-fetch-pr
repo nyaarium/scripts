@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { z } from "zod";
 
 // Schema definitions for the GitHub PR data
@@ -42,10 +44,11 @@ const PRSchema = z.object({
 
 function printUsage() {
 	console.log("");
-	console.log("Usage: fetch-github-pr <pr-id>");
-	console.log("       fetch-github-pr <repo> <pr-id>");
+	console.log("Usage: fetch-github-pr [<repo>] <pr-id> [--output-path <output-path>]");
+	console.log("");
 	console.log("  repo: Repository in owner/repo format (ex: microsoft/vscode)");
-	console.log("  pr-id: The pull request number");
+	console.log("  pr-id: The pull request number (numeric)");
+	console.log("  --output-path: Optional path to write JSON output");
 	console.log("");
 }
 
@@ -57,29 +60,66 @@ function parseArgs() {
 		process.exit(1);
 	}
 
-	if (args.length === 1) {
-		// Just prId - use current repo
-		return { repo: undefined, prId: args[0] };
-	}
+	let repo = undefined;
+	let prId = undefined;
+	let outputPath = undefined;
 
-	if (args.length === 2) {
-		// repo prId format
-		const repo = args[0];
-		const prId = args[1];
+	// Parse arguments
+	let i = 0;
+	while (i < args.length) {
+		const arg = args[i];
 
-		// Validate repo format
-		if (!repo.includes("/")) {
-			console.error("Error: Repository must be in owner/repo format (ex: microsoft/vscode)");
+		if (arg === "--output-path") {
+			// Handle --output-path flag
+			if (i + 1 >= args.length) {
+				console.error("Error: --output-path requires a value");
+				printUsage();
+				process.exit(1);
+			}
+			outputPath = args[i + 1];
+			i += 2;
+		} else if (arg.includes("/")) {
+			// This looks like a repo
+			if (repo !== undefined) {
+				console.error("Error: Multiple repositories specified");
+				printUsage();
+				process.exit(1);
+			}
+			// Validate repo format (must have exactly one slash)
+			const slashCount = (arg.match(/\//g) || []).length;
+			if (slashCount !== 1) {
+				console.error(
+					"Error: Repository must be in owner/repo format with exactly one slash (ex: microsoft/vscode)",
+				);
+				printUsage();
+				process.exit(1);
+			}
+			repo = arg;
+			i++;
+		} else if (/^\d+$/.test(arg)) {
+			// This looks like a numeric PR ID
+			if (prId !== undefined) {
+				console.error("Error: Multiple PR IDs specified");
+				printUsage();
+				process.exit(1);
+			}
+			prId = arg;
+			i++;
+		} else {
+			console.error(`Error: Unrecognized argument: ${arg}`);
 			printUsage();
 			process.exit(1);
 		}
-
-		return { repo, prId };
 	}
 
-	console.error("Error: Too many arguments");
-	printUsage();
-	process.exit(1);
+	// Validate required arguments
+	if (prId === undefined) {
+		console.error("Error: PR ID is required");
+		printUsage();
+		process.exit(1);
+	}
+
+	return { repo, prId, outputPath };
 }
 
 async function fetchPR(repo, prId) {
@@ -111,11 +151,51 @@ async function fetchPR(repo, prId) {
 			stderr += data.toString();
 		});
 
-		child.on("close", (code) => {
+		child.on("close", async (code) => {
 			if (code === 0) {
 				try {
 					const rawData = JSON.parse(stdout);
 					const validatedData = PRSchema.parse(rawData);
+
+					// Fetch detailed commit information for each commit
+					const detailedCommits = await Promise.all(
+						validatedData.commits.map(async (commit) => {
+							try {
+								const commitDetails = await fetchCommitDetails(repo, commit.oid);
+
+								const files = commitDetails.files || [];
+								const transformedFiles = files.map((file) => ({
+									filename: file.filename,
+									status: file.status,
+									urlWeb: file.blob_url,
+									urlRaw: file.raw_url,
+									patch: file.patch || null,
+								}));
+
+								return {
+									id: commit.oid,
+									date: commit.committedDate,
+									message: commit.messageBody
+										? `${commit.messageHeadline}\n${commit.messageBody}`.trim()
+										: commit.messageHeadline.trim(),
+									files: transformedFiles,
+								};
+							} catch (error) {
+								console.error(
+									`Warning: Failed to fetch details for commit ${commit.oid}: ${error.message}`,
+								);
+								// Return basic commit info if detailed fetch fails
+								return {
+									id: commit.oid,
+									date: commit.committedDate,
+									message: commit.messageBody
+										? `${commit.messageHeadline}\n${commit.messageBody}`.trim()
+										: commit.messageHeadline.trim(),
+									files: [],
+								};
+							}
+						}),
+					);
 
 					// Transform the data according to specifications
 					const transformedData = {
@@ -130,13 +210,7 @@ async function fetchPR(repo, prId) {
 						mergeStateStatus: validatedData.mergeStateStatus,
 						mergedAt: validatedData.mergedAt,
 						mergeCommit: validatedData.mergeCommit?.oid || null,
-						commits: validatedData.commits.map((commit) => ({
-							id: commit.oid,
-							date: commit.committedDate,
-							message: commit.messageBody
-								? `${commit.messageHeadline}\n${commit.messageBody}`.trim()
-								: commit.messageHeadline.trim(),
-						})),
+						commits: detailedCommits,
 					};
 
 					resolve(transformedData);
@@ -154,16 +228,72 @@ async function fetchPR(repo, prId) {
 	});
 }
 
+async function fetchCommitDetails(repo, commitHash) {
+	return new Promise((resolve, reject) => {
+		let apiArgs;
+		if (repo) {
+			apiArgs = ["api", `repos/${repo}/commits/${commitHash}`];
+		} else {
+			// Use current repo context
+			apiArgs = ["api", "repos/:owner/:repo/commits/" + commitHash];
+		}
+
+		const child = spawn("gh", apiArgs, {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		let stdout = "";
+		let stderr = "";
+
+		child.stdout.on("data", (data) => {
+			stdout += data.toString();
+		});
+
+		child.stderr.on("data", (data) => {
+			stderr += data.toString();
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				try {
+					const commitData = JSON.parse(stdout);
+					resolve(commitData);
+				} catch (error) {
+					reject(new Error(`Failed to parse commit API response: ${error}`));
+				}
+			} else {
+				reject(new Error(`GitHub API failed with code ${code}: ${stderr}`));
+			}
+		});
+
+		child.on("error", (error) => {
+			reject(new Error(`Failed to execute GitHub API: ${error.message}`));
+		});
+	});
+}
+
 async function main() {
 	try {
-		const { repo, prId } = parseArgs();
+		const { repo, prId, outputPath } = parseArgs();
 
 		console.log(`Fetching PR ${prId}${repo ? ` from ${repo}` : ""}...`);
 
 		const prData = await fetchPR(repo, prId);
 
-		// Output the transformed data as JSON
-		console.log(JSON.stringify(prData, null, 2));
+		if (outputPath) {
+			// Write to file and output path info
+			const outputPathAbs = resolve(outputPath);
+			writeFileSync(outputPathAbs, JSON.stringify(prData, null, 2));
+
+			const outputInfo = {
+				outputPath: outputPath,
+				outputPathAbs: outputPathAbs,
+			};
+			console.log(JSON.stringify(outputInfo, null, 2));
+		} else {
+			// Output the transformed data as JSON
+			console.log(JSON.stringify(prData, null, 2));
+		}
 	} catch (error) {
 		console.error("Error:", error.message);
 		process.exit(1);
