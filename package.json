@@ -2,6 +2,8 @@
   "name": "scripts",
   "type": "module",
   "dependencies": {
-    "ansis": "^4.1.0"
+    "@modelcontextprotocol/sdk": "^1.17.3",
+    "ansis": "^4.1.0",
+    "zod": "^3.25.76"
   }
 }
