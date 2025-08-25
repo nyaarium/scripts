@@ -7,8 +7,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+
 const mcpServer = new McpServer({
-	name: "tree-md-mcp",
+	name: "scripts-mcp",
 	version: "0.1.0",
 });
 
@@ -26,7 +28,6 @@ mcpServer.registerTool(
 	},
 	async ({ paths }) => {
 		return await new Promise((resolve) => {
-			const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 			const cmdPath = path.join(scriptDir, "tree-md");
 
 			const child = spawn(cmdPath, paths, {
@@ -61,6 +62,70 @@ mcpServer.registerTool(
 			child.on("error", (err) => {
 				resolve({
 					content: [{ type: "text", text: `Failed to run tree-md: ${err.message}` }],
+					isError: true,
+				});
+			});
+		});
+	},
+);
+
+mcpServer.registerTool(
+	"githubFetchPr",
+	{
+		title: "github-fetch-pr",
+		description: "Fetch GitHub pull request data using the local github-fetch-pr script.",
+		inputSchema: {
+			repo: z
+				.string()
+				.optional()
+				.describe(
+					"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
+				),
+			prId: z.string().describe("The pull request number to fetch."),
+		},
+	},
+	async ({ repo, prId }) => {
+		return await new Promise((resolve) => {
+			const cmdPath = path.join(scriptDir, "github-fetch-pr");
+
+			const args = repo ? [repo, prId] : [prId];
+			const child = spawn(cmdPath, args, {
+				stdio: ["ignore", "pipe", "pipe"],
+			});
+			let stdout = "";
+			let stderr = "";
+
+			child.stdout.on("data", (data) => {
+				stdout += data.toString();
+			});
+			child.stderr.on("data", (data) => {
+				stderr += data.toString();
+			});
+			child.on("close", (code) => {
+				if (code === 0) {
+					resolve({
+						content: [{ type: "text", text: stdout || "(no output)" }],
+					});
+				} else {
+					resolve({
+						content: [
+							{
+								type: "text",
+								text: stderr || `github-fetch-pr exited with code ${code}`,
+							},
+						],
+						isError: true,
+					});
+				}
+			});
+			child.on("error", (err) => {
+				resolve({
+					content: [
+						{
+							type: "text",
+							text: `Failed to run github-fetch-pr: ${err.message}`,
+						},
+					],
 					isError: true,
 				});
 			});

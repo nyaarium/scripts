@@ -1,0 +1,173 @@
+#!/usr/bin/env node
+
+import { spawn } from "node:child_process";
+import { z } from "zod";
+
+// Schema definitions for the GitHub PR data
+const AuthorSchema = z.object({
+	login: z.string(),
+	name: z.string().nullable().optional(),
+});
+
+const MergeCommitSchema = z.object({
+	oid: z.string(),
+});
+
+const CommitSchema = z.object({
+	oid: z.string(),
+	committedDate: z.string(),
+	messageHeadline: z.string(),
+	messageBody: z.string().nullable(),
+});
+
+const CommentSchema = z.object({
+	id: z.string(),
+	author: AuthorSchema,
+	body: z.string(),
+	createdAt: z.string(),
+	updatedAt: z.string().nullable().optional(),
+});
+
+const PRSchema = z.object({
+	state: z.string(),
+	author: AuthorSchema,
+	title: z.string(),
+	body: z.string().nullable(),
+	comments: z.array(CommentSchema),
+	mergeStateStatus: z.string(),
+	mergedAt: z.string().nullable(),
+	mergeCommit: MergeCommitSchema.nullable(),
+	commits: z.array(CommitSchema),
+});
+
+function printUsage() {
+	console.log("");
+	console.log("Usage: fetch-github-pr <pr-id>");
+	console.log("       fetch-github-pr <repo> <pr-id>");
+	console.log("  repo: Repository in owner/repo format (ex: microsoft/vscode)");
+	console.log("  pr-id: The pull request number");
+	console.log("");
+}
+
+function parseArgs() {
+	const args = process.argv.slice(2);
+
+	if (args.length < 1) {
+		printUsage();
+		process.exit(1);
+	}
+
+	if (args.length === 1) {
+		// Just prId - use current repo
+		return { repo: undefined, prId: args[0] };
+	}
+
+	if (args.length === 2) {
+		// repo prId format
+		const repo = args[0];
+		const prId = args[1];
+
+		// Validate repo format
+		if (!repo.includes("/")) {
+			console.error("Error: Repository must be in owner/repo format (ex: microsoft/vscode)");
+			printUsage();
+			process.exit(1);
+		}
+
+		return { repo, prId };
+	}
+
+	console.error("Error: Too many arguments");
+	printUsage();
+	process.exit(1);
+}
+
+async function fetchPR(repo, prId) {
+	return new Promise((resolve, reject) => {
+		const cmdArgs = [
+			"pr",
+			"view",
+			prId,
+			"--json",
+			"state,author,title,body,comments,mergeStateStatus,mergedAt,mergeCommit,commits",
+		];
+
+		if (repo) {
+			cmdArgs.splice(2, 0, "--repo", repo);
+		}
+
+		const child = spawn("gh", cmdArgs, {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		let stdout = "";
+		let stderr = "";
+
+		child.stdout.on("data", (data) => {
+			stdout += data.toString();
+		});
+
+		child.stderr.on("data", (data) => {
+			stderr += data.toString();
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				try {
+					const rawData = JSON.parse(stdout);
+					const validatedData = PRSchema.parse(rawData);
+
+					// Transform the data according to specifications
+					const transformedData = {
+						state: validatedData.state,
+						author: {
+							login: validatedData.author.login,
+							name: validatedData.author.name,
+						},
+						title: validatedData.title,
+						body: validatedData.body,
+						comments: validatedData.comments,
+						mergeStateStatus: validatedData.mergeStateStatus,
+						mergedAt: validatedData.mergedAt,
+						mergeCommit: validatedData.mergeCommit?.oid || null,
+						commits: validatedData.commits.map((commit) => ({
+							id: commit.oid,
+							date: commit.committedDate,
+							message: commit.messageBody
+								? `${commit.messageHeadline}\n${commit.messageBody}`.trim()
+								: commit.messageHeadline.trim(),
+						})),
+					};
+
+					resolve(transformedData);
+				} catch (error) {
+					reject(new Error(`Failed to parse GitHub CLI output: ${error}`));
+				}
+			} else {
+				reject(new Error(`GitHub CLI failed with code ${code}: ${stderr}`));
+			}
+		});
+
+		child.on("error", (error) => {
+			reject(new Error(`Failed to execute GitHub CLI: ${error.message}`));
+		});
+	});
+}
+
+async function main() {
+	try {
+		const { repo, prId } = parseArgs();
+
+		console.log(`Fetching PR ${prId}${repo ? ` from ${repo}` : ""}...`);
+
+		const prData = await fetchPR(repo, prId);
+
+		// Output the transformed data as JSON
+		console.log(JSON.stringify(prData, null, 2));
+	} catch (error) {
+		console.error("Error:", error.message);
+		process.exit(1);
+	}
+}
+
+main();
