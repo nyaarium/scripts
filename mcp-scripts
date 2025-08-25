@@ -8,77 +8,72 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 const mcpServer = new McpServer({
-  name: "tree-md-mcp",
-  version: "0.1.0",
+	name: "tree-md-mcp",
+	version: "0.1.0",
 });
 
 mcpServer.registerTool(
-  "treeMd",
-  {
-    title: "tree-md",
-    description:
-      "Render a directory or Markdown file tree using the local tree-md script.",
-    inputSchema: {
-      paths: z
-        .array(z.string())
-        .nonempty()
-        .describe(
-          "One or more absolute or relative paths to scan (directories or .md files)."
-        ),
-    },
-  },
-  async ({ paths }) => {
-    return await new Promise((resolve) => {
-      const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-      const cmdPath = path.join(scriptDir, "tree-md");
+	"treeMd",
+	{
+		title: "tree-md",
+		description: "Render a directory or Markdown file tree using the local tree-md script.",
+		inputSchema: {
+			paths: z
+				.array(z.string())
+				.nonempty()
+				.describe("One or more absolute or relative paths to scan (directories or .md files)."),
+		},
+	},
+	async ({ paths }) => {
+		return await new Promise((resolve) => {
+			const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+			const cmdPath = path.join(scriptDir, "tree-md");
 
-      const child = spawn(cmdPath, paths, {
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      let stdout = "";
-      let stderr = "";
+			const child = spawn(cmdPath, paths, {
+				stdio: ["ignore", "pipe", "pipe"],
+			});
+			let stdout = "";
+			let stderr = "";
 
-      child.stdout.on("data", (data) => {
-        stdout += data.toString();
-      });
-      child.stderr.on("data", (data) => {
-        stderr += data.toString();
-      });
-      child.on("close", (code) => {
-        if (code === 0) {
-          resolve({
-            content: [{ type: "text", text: stdout || "(no output)" }],
-          });
-        } else {
-          resolve({
-            content: [
-              {
-                type: "text",
-                text: stderr || `tree-md exited with code ${code}`,
-              },
-            ],
-            isError: true,
-          });
-        }
-      });
-      child.on("error", (err) => {
-        resolve({
-          content: [
-            { type: "text", text: `Failed to run tree-md: ${err.message}` },
-          ],
-          isError: true,
-        });
-      });
-    });
-  }
+			child.stdout.on("data", (data) => {
+				stdout += data.toString();
+			});
+			child.stderr.on("data", (data) => {
+				stderr += data.toString();
+			});
+			child.on("close", (code) => {
+				if (code === 0) {
+					resolve({
+						content: [{ type: "text", text: stdout || "(no output)" }],
+					});
+				} else {
+					resolve({
+						content: [
+							{
+								type: "text",
+								text: stderr || `tree-md exited with code ${code}`,
+							},
+						],
+						isError: true,
+					});
+				}
+			});
+			child.on("error", (err) => {
+				resolve({
+					content: [{ type: "text", text: `Failed to run tree-md: ${err.message}` }],
+					isError: true,
+				});
+			});
+		});
+	},
 );
 
 async function main() {
-  const transport = new StdioServerTransport();
-  await mcpServer.connect(transport);
+	const transport = new StdioServerTransport();
+	await mcpServer.connect(transport);
 }
 
 main().catch((error) => {
-  console.error("Server error:", error);
-  process.exit(1);
+	console.error("Server error:", error);
+	process.exit(1);
 });
