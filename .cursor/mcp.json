@@ -1,7 +1,7 @@
 {
 	"mcpServers": {
 		"mcp-scripts": {
-			"command": "mcp-scripts",
+			"command": "~/scripts/mcp-scripts",
 			"args": [],
 			"env": {}
 		}
