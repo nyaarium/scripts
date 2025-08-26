@@ -20,6 +20,7 @@ const CommitSchema = z.object({
 	committedDate: z.string(),
 	messageHeadline: z.string(),
 	messageBody: z.string().nullable(),
+	authors: z.array(AuthorSchema).optional(),
 });
 
 const CommentSchema = z.object({
@@ -160,6 +161,27 @@ async function fetchPR(repo, prId) {
 					// Fetch detailed commit information for each commit
 					const detailedCommits = await Promise.all(
 						validatedData.commits.map(async (commit) => {
+							// Check for dependabot patterns in commit message
+							const dependabotPatterns = [
+								/^Bump .+ from .+ to .+$/i, // "Bump xxx from xxx to xxxx"
+								/^Bump .+ group with .+$/i, // "Bump xxx group with xxx"
+								/from .+\/dependabot\//i, // "from xxx/dependabot/"
+							];
+
+							const isDependabot = dependabotPatterns.some(
+								(pattern) =>
+									pattern.test(commit.messageHeadline) ||
+									(commit.messageBody && pattern.test(commit.messageBody)),
+							);
+
+							let message = commit.messageBody
+								? `${commit.messageHeadline}\n${commit.messageBody}`.trim()
+								: commit.messageHeadline.trim();
+
+							if (isDependabot) {
+								message = commit.messageHeadline.trim();
+							}
+
 							try {
 								const commitDetails = await fetchCommitDetails(repo, commit.oid);
 
@@ -175,22 +197,14 @@ async function fetchPR(repo, prId) {
 								return {
 									id: commit.oid,
 									date: commit.committedDate,
-									message: commit.messageBody
-										? `${commit.messageHeadline}\n${commit.messageBody}`.trim()
-										: commit.messageHeadline.trim(),
+									message,
 									files: transformedFiles,
 								};
 							} catch (error) {
-								console.error(
-									`Warning: Failed to fetch details for commit ${commit.oid}: ${error.message}`,
-								);
-								// Return basic commit info if detailed fetch fails
 								return {
 									id: commit.oid,
 									date: commit.committedDate,
-									message: commit.messageBody
-										? `${commit.messageHeadline}\n${commit.messageBody}`.trim()
-										: commit.messageHeadline.trim(),
+									message: message + "\n\n[Error: File details could not be fetched]",
 									files: [],
 								};
 							}
