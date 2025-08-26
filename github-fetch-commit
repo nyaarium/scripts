@@ -162,23 +162,28 @@ async function fetchCommit(repo, commitHash) {
 					const messageHeadline = messageLines[0];
 					const messageBody = messageLines.slice(1).join("\n").trim() || null;
 
-					// Transform the data according to specifications
+					// Check for dependabot patterns in commit message
+					const dependabotPatterns = [
+						/^Bump .+ from .+ to .+$/i, // "Bump xxx from xxx to xxxx"
+						/^Bump .+ group with .+$/i, // "Bump xxx group with xxx"
+						/from .+\/dependabot\//i, // "from xxx/dependabot/"
+					];
+
+					const isDependabot = dependabotPatterns.some(
+						(pattern) => pattern.test(messageHeadline) || (messageBody && pattern.test(messageBody)),
+					);
+
+					let message = messageBody ? `${messageHeadline}\n${messageBody}`.trim() : messageHeadline.trim();
+
+					if (isDependabot) {
+						message = messageHeadline.trim();
+					}
+
 					const transformedData = {
 						id: validatedData.sha,
 						date: validatedData.commit.author.date,
-						message: validatedData.commit.message,
-						messageHeadline,
-						messageBody,
-						author: {
-							name: validatedData.commit.author.name,
-							email: validatedData.commit.author.email,
-							login: validatedData.author?.login || null,
-						},
-						committer: {
-							name: validatedData.commit.committer.name,
-							email: validatedData.commit.committer.email,
-							login: validatedData.committer?.login || null,
-						},
+						author: validatedData.commit.author.name,
+						message,
 						files: validatedData.files.map((file) => ({
 							filename: file.filename,
 							status: file.status,
@@ -186,11 +191,6 @@ async function fetchCommit(repo, commitHash) {
 							urlRaw: file.raw_url,
 							patch: file.patch || null,
 						})),
-						stats: validatedData.stats || {
-							total: 0,
-							additions: 0,
-							deletions: 0,
-						},
 					};
 
 					resolve(transformedData);

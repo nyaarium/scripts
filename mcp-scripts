@@ -158,7 +158,8 @@ mcpServer.registerTool(
 	"githubFetchPr",
 	{
 		title: "github-fetch-pr",
-		description: "Fetch GitHub pull request data using the local github-fetch-pr script.",
+		description:
+			"Fetch GitHub pull request data using the local github-fetch-pr script. By default, commit details are not fetched to keep output size manageable. Recommended to first use fetchFiles=false to check the number of commits. Then use fetchFiles=true if <10 commits.",
 		inputSchema: {
 			repo: z
 				.string()
@@ -167,6 +168,13 @@ mcpServer.registerTool(
 					"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
 				),
 			prId: z.string().describe("The pull request number to fetch."),
+			fetchFiles: z
+				.boolean()
+				.optional()
+				.default(false)
+				.describe(
+					"Whether to fetch detailed file information for every commit. Recommended for PRs with <10 commits.",
+				),
 			outputPath: z
 				.string()
 				.optional()
@@ -175,22 +183,22 @@ mcpServer.registerTool(
 				),
 		},
 	},
-	async ({ repo, prId, outputPath }) => {
+	async ({ repo, prId, fetchFiles, outputPath }) => {
 		return await new Promise((resolve) => {
 			const cmdPath = path.join(scriptDir, "github-fetch-pr");
 
-			// Build arguments array - order doesn't matter for the new parser
 			let args = [];
 
-			// Add repo if provided (must contain exactly one slash)
 			if (repo) {
 				args.push(repo);
 			}
 
-			// Add prId (must be numeric)
 			args.push(prId);
 
-			// Add output path if provided (with --output-path flag)
+			if (fetchFiles) {
+				args.push("--fetch-files");
+			}
+
 			if (outputPath) {
 				args.push("--output-path", outputPath);
 			}

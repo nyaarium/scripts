@@ -45,11 +45,14 @@ const PRSchema = z.object({
 
 function printUsage() {
 	console.log("");
-	console.log("Usage: fetch-github-pr [<repo>] <pr-id> [--output-path <output-path>]");
+	console.log("Usage: fetch-github-pr [<repo>] <pr-id> [--fetch-files] [--output-path <output-path>]");
 	console.log("");
 	console.log("  repo: Repository in owner/repo format (ex: microsoft/vscode)");
 	console.log("  pr-id: The pull request number (numeric)");
 	console.log("  --output-path: Optional path to write JSON output");
+	console.log(
+		"  --fetch-files: Will fetch file details on commits. Outputs can be too large for AI, so make sure you look at the number of commits first before calling with this flag (ideally under 10 commits). You can alternatively use github-fetch-commit tool on individual commits",
+	);
 	console.log("");
 }
 
@@ -64,6 +67,7 @@ function parseArgs() {
 	let repo = undefined;
 	let prId = undefined;
 	let outputPath = undefined;
+	let fetchFiles = false;
 
 	// Parse arguments
 	let i = 0;
@@ -79,6 +83,10 @@ function parseArgs() {
 			}
 			outputPath = args[i + 1];
 			i += 2;
+		} else if (arg === "--fetch-files") {
+			// Handle --fetch-files flag
+			fetchFiles = true;
+			i++;
 		} else if (arg.includes("/")) {
 			// This looks like a repo
 			if (repo !== undefined) {
@@ -120,10 +128,10 @@ function parseArgs() {
 		process.exit(1);
 	}
 
-	return { repo, prId, outputPath };
+	return { repo, prId, outputPath, fetchFiles };
 }
 
-async function fetchPR(repo, prId) {
+async function fetchPR(repo, prId, fetchFiles = false) {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
 			"pr",
@@ -182,42 +190,56 @@ async function fetchPR(repo, prId) {
 								message = commit.messageHeadline.trim();
 							}
 
-							try {
-								const commitDetails = await fetchCommitDetails(repo, commit.oid);
+							const author = commit.authors
+								.map((author) => author.name)
+								.sort()
+								.join(", ");
 
-								const files = commitDetails.files || [];
-								const transformedFiles = files.map((file) => ({
-									filename: file.filename,
-									status: file.status,
-									urlWeb: file.blob_url,
-									urlRaw: file.raw_url,
-									patch: file.patch || null,
-								}));
+							if (fetchFiles) {
+								try {
+									const commitDetails = await fetchCommitDetails(repo, commit.oid);
 
+									const files = commitDetails.files || [];
+									const transformedFiles = files.map((file) => ({
+										filename: file.filename,
+										status: file.status,
+										urlWeb: file.blob_url,
+										urlRaw: file.raw_url,
+										patch: file.patch || null,
+									}));
+
+									console.log(commit);
+
+									return {
+										id: commit.oid,
+										date: commit.committedDate,
+										author,
+										message,
+										files: transformedFiles,
+									};
+								} catch (error) {
+									return {
+										id: commit.oid,
+										date: commit.committedDate,
+										author,
+										message: message + "\n\n[Error: File details could not be fetched]",
+										files: [],
+									};
+								}
+							} else {
 								return {
 									id: commit.oid,
 									date: commit.committedDate,
+									author,
 									message,
-									files: transformedFiles,
-								};
-							} catch (error) {
-								return {
-									id: commit.oid,
-									date: commit.committedDate,
-									message: message + "\n\n[Error: File details could not be fetched]",
-									files: [],
 								};
 							}
 						}),
 					);
 
-					// Transform the data according to specifications
 					const transformedData = {
 						state: validatedData.state,
-						author: {
-							login: validatedData.author.login,
-							name: validatedData.author.name,
-						},
+						author: validatedData.author.name,
 						title: validatedData.title,
 						body: validatedData.body,
 						comments: validatedData.comments,
@@ -288,11 +310,14 @@ async function fetchCommitDetails(repo, commitHash) {
 
 async function main() {
 	try {
-		const { repo, prId, outputPath } = parseArgs();
+		const { repo, prId, outputPath, fetchFiles } = parseArgs();
 
 		console.log(`Fetching PR ${prId}${repo ? ` from ${repo}` : ""}...`);
+		if (fetchFiles) {
+			console.log("File details will be fetched for each commit");
+		}
 
-		const prData = await fetchPR(repo, prId);
+		const prData = await fetchPR(repo, prId, fetchFiles);
 
 		if (outputPath) {
 			// Write to file and output path info
