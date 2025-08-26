@@ -70,6 +70,91 @@ mcpServer.registerTool(
 );
 
 mcpServer.registerTool(
+	"githubFetchCommit",
+	{
+		title: "github-fetch-commit",
+		description: "Fetch GitHub commit data using the local github-fetch-commit script.",
+		inputSchema: {
+			repo: z
+				.string()
+				.optional()
+				.describe(
+					"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
+				),
+			commitHash: z.string().describe("The commit hash to fetch (full or short)."),
+			outputPath: z
+				.string()
+				.optional()
+				.describe(
+					"Optional path to write JSON output (relative or absolute). If provided, returns path info instead of full data.",
+				),
+		},
+	},
+	async ({ repo, commitHash, outputPath }) => {
+		return await new Promise((resolve) => {
+			const cmdPath = path.join(scriptDir, "github-fetch-commit");
+
+			// Build arguments array - order doesn't matter for the new parser
+			let args = [];
+
+			// Add repo if provided (must contain exactly one slash)
+			if (repo) {
+				args.push(repo);
+			}
+
+			// Add commitHash (must be hex string)
+			args.push(commitHash);
+
+			// Add output path if provided (with --output-path flag)
+			if (outputPath) {
+				args.push("--output-path", outputPath);
+			}
+
+			const child = spawn(cmdPath, args, {
+				stdio: ["ignore", "pipe", "pipe"],
+			});
+			let stdout = "";
+			let stderr = "";
+
+			child.stdout.on("data", (data) => {
+				stdout += data.toString();
+			});
+			child.stderr.on("data", (data) => {
+				stderr += data.toString();
+			});
+			child.on("close", (code) => {
+				if (code === 0) {
+					resolve({
+						content: [{ type: "text", text: stdout || "(no output)" }],
+					});
+				} else {
+					resolve({
+						content: [
+							{
+								type: "text",
+								text: stderr || `github-fetch-commit exited with code ${code}`,
+							},
+						],
+						isError: true,
+					});
+				}
+			});
+			child.on("error", (err) => {
+				resolve({
+					content: [
+						{
+							type: "text",
+							text: `Failed to run github-fetch-commit: ${err.message}`,
+						},
+					],
+					isError: true,
+				});
+			});
+		});
+	},
+);
+
+mcpServer.registerTool(
 	"githubFetchPr",
 	{
 		title: "github-fetch-pr",
