@@ -31,6 +31,31 @@ const CommentSchema = z.object({
 	updatedAt: z.string().nullable().optional(),
 });
 
+const StatusCheckSchema = z.object({
+	__typename: z.string(),
+	completedAt: z.string().nullable().optional(),
+	conclusion: z.string().nullable().optional(),
+	detailsUrl: z.string().nullable().optional(),
+	name: z.string(),
+	startedAt: z.string().nullable().optional(),
+	status: z.string(),
+	workflowName: z.string().nullable().optional(),
+});
+
+const PRListSchema = z.object({
+	number: z.number(),
+	state: z.string(),
+	author: AuthorSchema,
+	title: z.string(),
+	body: z.string().nullable().optional(),
+	comments: z.array(CommentSchema).optional(),
+	mergeStateStatus: z.string().optional(),
+	mergedAt: z.string().nullable().optional(),
+	mergeCommit: MergeCommitSchema.nullable().optional(),
+	commits: z.array(CommitSchema).optional(),
+	statusCheckRollup: z.array(StatusCheckSchema).nullable().optional(),
+});
+
 const PRSchema = z.object({
 	state: z.string(),
 	author: AuthorSchema,
@@ -41,17 +66,24 @@ const PRSchema = z.object({
 	mergedAt: z.string().nullable(),
 	mergeCommit: MergeCommitSchema.nullable(),
 	commits: z.array(CommitSchema),
+	statusCheckRollup: z.array(StatusCheckSchema).nullable().optional(),
 });
 
 function printUsage() {
 	console.log("");
-	console.log("Usage: fetch-github-pr [<repo>] <pr-id> [--fetch-files] [--output-path <output-path>]");
+	console.log(
+		"Usage: github-fetch-pr [<repo>] [<pr-id>] [--state <state>] [--limit <limit>] [--fetch-files] [--output-path <output-path>]",
+	);
 	console.log("");
 	console.log("  repo: Repository in owner/repo format (ex: microsoft/vscode)");
-	console.log("  pr-id: The pull request number (numeric)");
+	console.log("  pr-id: The pull request number (numeric, optional - if not provided, fetches a list)");
+	console.log(
+		"  --state: Filter by state: open, closed, merged, or all (default: open, only used when fetching list)",
+	);
+	console.log("  --limit: Maximum number of PRs to fetch (default: 20, only used when fetching list)");
 	console.log("  --output-path: Optional path to write JSON output");
 	console.log(
-		"  --fetch-files: Will fetch file details on commits. Outputs can be too large for AI, so make sure you look at the number of commits first before calling with this flag (ideally under 10 commits). You can alternatively use github-fetch-commit tool on individual commits",
+		"  --fetch-files: Will fetch file details on commits (only used for single PR, ignored in list mode). Outputs can be too large for AI, so make sure you look at the number of commits first before calling with this flag (ideally under 10 commits). You can alternatively use github-fetch-commit tool on individual commits",
 	);
 	console.log("");
 }
@@ -59,13 +91,10 @@ function printUsage() {
 function parseArgs() {
 	const args = process.argv.slice(2);
 
-	if (args.length < 1) {
-		printUsage();
-		process.exit(1);
-	}
-
 	let repo = undefined;
 	let prId = undefined;
+	let state = "open";
+	let limit = 20;
 	let outputPath = undefined;
 	let fetchFiles = false;
 
@@ -82,6 +111,36 @@ function parseArgs() {
 				process.exit(1);
 			}
 			outputPath = args[i + 1];
+			i += 2;
+		} else if (arg === "--state") {
+			// Handle --state flag
+			if (i + 1 >= args.length) {
+				console.error("Error: --state requires a value");
+				printUsage();
+				process.exit(1);
+			}
+			const stateValue = args[i + 1];
+			if (!["open", "closed", "merged", "all"].includes(stateValue)) {
+				console.error("Error: --state must be one of: open, closed, merged, all");
+				printUsage();
+				process.exit(1);
+			}
+			state = stateValue;
+			i += 2;
+		} else if (arg === "--limit") {
+			// Handle --limit flag
+			if (i + 1 >= args.length) {
+				console.error("Error: --limit requires a value");
+				printUsage();
+				process.exit(1);
+			}
+			const limitValue = parseInt(args[i + 1]);
+			if (isNaN(limitValue) || limitValue <= 0) {
+				console.error("Error: --limit must be a positive number");
+				printUsage();
+				process.exit(1);
+			}
+			limit = limitValue;
 			i += 2;
 		} else if (arg === "--fetch-files") {
 			// Handle --fetch-files flag
@@ -121,14 +180,7 @@ function parseArgs() {
 		}
 	}
 
-	// Validate required arguments
-	if (prId === undefined) {
-		console.error("Error: PR ID is required");
-		printUsage();
-		process.exit(1);
-	}
-
-	return { repo, prId, outputPath, fetchFiles };
+	return { repo, prId, state, limit, outputPath, fetchFiles };
 }
 
 async function fetchPR(repo, prId, fetchFiles = false) {
@@ -138,7 +190,7 @@ async function fetchPR(repo, prId, fetchFiles = false) {
 			"view",
 			prId,
 			"--json",
-			"state,author,title,body,comments,mergeStateStatus,mergedAt,mergeCommit,commits",
+			"state,author,title,body,comments,mergeStateStatus,mergedAt,mergeCommit,commits,statusCheckRollup",
 		];
 
 		if (repo) {
@@ -247,6 +299,7 @@ async function fetchPR(repo, prId, fetchFiles = false) {
 						mergedAt: validatedData.mergedAt,
 						mergeCommit: validatedData.mergeCommit?.oid || null,
 						commits: detailedCommits,
+						statusCheckRollup: validatedData.statusCheckRollup || null,
 					};
 
 					resolve(transformedData);
@@ -308,21 +361,112 @@ async function fetchCommitDetails(repo, commitHash) {
 	});
 }
 
-async function main() {
-	try {
-		const { repo, prId, outputPath, fetchFiles } = parseArgs();
+async function fetchPRs(repo, state, limit) {
+	return new Promise((resolve, reject) => {
+		const cmdArgs = [
+			"pr",
+			"list",
+			"--state",
+			state,
+			"--limit",
+			limit.toString(),
+			"--json",
+			"number,title,body,state,author,assignees,labels,comments,mergeStateStatus,mergedAt,mergeCommit,commits,statusCheckRollup",
+		];
 
-		console.log(`Fetching PR ${prId}${repo ? ` from ${repo}` : ""}...`);
-		if (fetchFiles) {
-			console.log("File details will be fetched for each commit");
+		if (repo) {
+			cmdArgs.splice(2, 0, "--repo", repo);
 		}
 
-		const prData = await fetchPR(repo, prId, fetchFiles);
+		const child = spawn("gh", cmdArgs, {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		let stdout = "";
+		let stderr = "";
+
+		child.stdout.on("data", (data) => {
+			stdout += data.toString();
+		});
+
+		child.stderr.on("data", (data) => {
+			stderr += data.toString();
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				try {
+					const rawData = JSON.parse(stdout);
+					const validatedData = z.array(PRListSchema).parse(rawData);
+
+					const transformedData = validatedData.map((pr) => ({
+						number: pr.number,
+						title: pr.title,
+						body: pr.body || null,
+						state: pr.state,
+						author: pr.author.name || pr.author.login,
+						assignees: pr.assignees?.map((assignee) => assignee.name || assignee.login) || [],
+						labels: pr.labels?.map((label) => label.name) || [],
+						comments: pr.comments || [],
+						mergeStateStatus: pr.mergeStateStatus || null,
+						mergedAt: pr.mergedAt || null,
+						mergeCommit: pr.mergeCommit?.oid || null,
+						commits:
+							pr.commits?.map((commit) => ({
+								id: commit.oid,
+								date: commit.committedDate,
+								author:
+									commit.authors
+										?.map((author) => author.name)
+										.sort()
+										.join(", ") || "Unknown",
+								message: commit.messageBody
+									? `${commit.messageHeadline}\n${commit.messageBody}`.trim()
+									: commit.messageHeadline.trim(),
+							})) || [],
+						statusCheckRollup: pr.statusCheckRollup || null,
+					}));
+
+					resolve(transformedData);
+				} catch (error) {
+					reject(new Error(`Failed to parse GitHub CLI output: ${error}`));
+				}
+			} else {
+				reject(new Error(`GitHub CLI failed with code ${code}: ${stderr}`));
+			}
+		});
+
+		child.on("error", (error) => {
+			reject(new Error(`Failed to execute GitHub CLI: ${error.message}`));
+		});
+	});
+}
+
+async function main() {
+	try {
+		const { repo, prId, state, limit, outputPath, fetchFiles } = parseArgs();
+
+		let data;
+		if (prId) {
+			// Fetch single PR
+			console.log(`Fetching PR ${prId}${repo ? ` from ${repo}` : ""}...`);
+			if (fetchFiles) {
+				console.log("File details will be fetched for each commit");
+			}
+			data = await fetchPR(repo, prId, fetchFiles);
+		} else {
+			// Fetch list of PRs - silently disable fetchFiles in list mode
+			if (fetchFiles) {
+				console.log("Note: --fetch-files is ignored in list mode to prevent excessive API calls");
+			}
+			console.log(`Fetching ${state} PRs${repo ? ` from ${repo}` : ""} (limit: ${limit})...`);
+			data = await fetchPRs(repo, state, limit);
+		}
 
 		if (outputPath) {
 			// Write to file and output path info
 			const outputPathAbs = resolve(outputPath);
-			writeFileSync(outputPathAbs, JSON.stringify(prData, null, 2));
+			writeFileSync(outputPathAbs, JSON.stringify(data, null, 2));
 
 			const outputInfo = {
 				outputPath: outputPath,
@@ -331,7 +475,7 @@ async function main() {
 			console.log(JSON.stringify(outputInfo, null, 2));
 		} else {
 			// Output the transformed data as JSON
-			console.log(JSON.stringify(prData, null, 2));
+			console.log(JSON.stringify(data, null, 2));
 		}
 	} catch (error) {
 		console.error("Error:", error.message);

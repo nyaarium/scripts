@@ -159,7 +159,7 @@ mcpServer.registerTool(
 	{
 		title: "github-fetch-pr",
 		description:
-			"Fetch GitHub pull request data using the local github-fetch-pr script. By default, commit details are not fetched to keep output size manageable. Recommended to first use fetchFiles=false to check the number of commits. Then use fetchFiles=true if <10 commits.",
+			"Fetch GitHub pull requests using the local github-fetch-pr script. If prId is provided, fetches a single PR. If not provided, fetches a list of PRs. By default, commit details are not fetched to keep output size manageable. Recommended to first use fetchFiles=false to check the number of commits. Then use fetchFiles=true if <10 commits.",
 		inputSchema: {
 			repo: z
 				.string()
@@ -167,7 +167,23 @@ mcpServer.registerTool(
 				.describe(
 					"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
 				),
-			prId: z.string().describe("The pull request number to fetch."),
+			prId: z
+				.string()
+				.optional()
+				.describe("The pull request number to fetch. If not provided, fetches a list of PRs."),
+			state: z
+				.enum(["open", "closed", "merged", "all"])
+				.optional()
+				.default("open")
+				.describe("Filter by PR state: open, closed, merged, or all (only used when fetching list)."),
+			limit: z
+				.number()
+				.int()
+				.min(1)
+				.max(100)
+				.optional()
+				.default(20)
+				.describe("Maximum number of PRs to fetch (1-100, only used when fetching list)."),
 			fetchFiles: z
 				.boolean()
 				.optional()
@@ -183,7 +199,7 @@ mcpServer.registerTool(
 				),
 		},
 	},
-	async ({ repo, prId, fetchFiles, outputPath }) => {
+	async ({ repo, prId, state, limit, fetchFiles, outputPath }) => {
 		return await new Promise((resolve) => {
 			const cmdPath = path.join(scriptDir, "github-fetch-pr");
 
@@ -193,7 +209,13 @@ mcpServer.registerTool(
 				args.push(repo);
 			}
 
-			args.push(prId);
+			if (prId) {
+				args.push(prId);
+			} else {
+				// Only add state and limit when fetching list
+				args.push("--state", state);
+				args.push("--limit", limit.toString());
+			}
 
 			if (fetchFiles) {
 				args.push("--fetch-files");
