@@ -269,6 +269,110 @@ mcpServer.registerTool(
 	},
 );
 
+mcpServer.registerTool(
+	"githubFetchIssue",
+	{
+		title: "github-fetch-issue",
+		description:
+			"Fetch GitHub issues using the local github-fetch-issue script. If issueId is provided, fetches a single issue. If not provided, fetches a list of issues. Returns detailed information including comments.",
+		inputSchema: {
+			repo: z
+				.string()
+				.optional()
+				.describe(
+					"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
+				),
+			issueId: z
+				.string()
+				.optional()
+				.describe("The issue number to fetch. If not provided, fetches a list of issues."),
+			state: z
+				.enum(["open", "closed", "all"])
+				.optional()
+				.default("all")
+				.describe("Filter by issue state: open, closed, or all (only used when fetching list)."),
+			limit: z
+				.number()
+				.int()
+				.min(1)
+				.max(100)
+				.optional()
+				.default(20)
+				.describe("Maximum number of issues to fetch (1-100, only used when fetching list)."),
+			outputPath: z
+				.string()
+				.optional()
+				.describe(
+					"Optional path to write JSON output (relative or absolute). If provided, returns path info instead of full data.",
+				),
+		},
+	},
+	async ({ repo, issueId, state, limit, outputPath }) => {
+		return await new Promise((resolve) => {
+			const cmdPath = path.join(scriptDir, "github-fetch-issue");
+
+			let args = [];
+
+			if (repo) {
+				args.push(repo);
+			}
+
+			if (issueId) {
+				args.push(issueId);
+			} else {
+				// Only add state and limit when fetching list
+				args.push("--state", state);
+				args.push("--limit", limit.toString());
+			}
+
+			if (outputPath) {
+				args.push("--output-path", outputPath);
+			}
+
+			const child = spawn(cmdPath, args, {
+				stdio: ["ignore", "pipe", "pipe"],
+			});
+			let stdout = "";
+			let stderr = "";
+
+			child.stdout.on("data", (data) => {
+				stdout += data.toString();
+			});
+			child.stderr.on("data", (data) => {
+				stderr += data.toString();
+			});
+			child.on("close", (code) => {
+				if (code === 0) {
+					resolve({
+						content: [{ type: "text", text: stdout || "(no output)" }],
+					});
+				} else {
+					resolve({
+						content: [
+							{
+								type: "text",
+								text: stderr || `github-fetch-issue exited with code ${code}`,
+							},
+						],
+						isError: true,
+					});
+				}
+			});
+			child.on("error", (err) => {
+				resolve({
+					content: [
+						{
+							type: "text",
+							text: `Failed to run github-fetch-issue: ${err.message}`,
+						},
+					],
+					isError: true,
+				});
+			});
+		});
+	},
+);
+
 async function main() {
 	const transport = new StdioServerTransport();
 	await mcpServer.connect(transport);
