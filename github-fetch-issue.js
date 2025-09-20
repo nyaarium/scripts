@@ -5,48 +5,101 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 
-// Schema definitions for the GitHub issue data
-const AuthorSchema = z.object({
-	id: z.string(),
-	is_bot: z.boolean().optional(),
+// Input validation schemas for GitHub API data
+const InputAuthorSchema = z.object({
 	login: z.string(),
-	name: z.string().nullable().optional(),
 });
 
-const AssigneeSchema = z.object({
+const InputCommentSchema = z.object({
 	id: z.string(),
-	login: z.string(),
-	name: z.string().nullable().optional(),
-});
-
-const LabelSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	description: z.string().nullable().optional(),
-	color: z.string(),
-});
-
-const CommentSchema = z.object({
-	id: z.string(),
-	author: AuthorSchema,
+	author: InputAuthorSchema,
 	body: z.string(),
 	createdAt: z.string(),
 	updatedAt: z.string().nullable().optional(),
 });
 
-const IssueSchema = z.object({
+const InputIssueSchema = z.object({
 	number: z.number(),
 	title: z.string(),
 	body: z.string().nullable(),
 	state: z.string(),
 	stateReason: z.string().nullable().optional(),
-	author: AuthorSchema,
-	assignees: z.array(AssigneeSchema),
-	labels: z.array(LabelSchema),
-	comments: z.array(CommentSchema),
+	author: z.union([z.string(), InputAuthorSchema]), // Can be string or object
+	assignees: z.union([
+		z.string(),
+		z.array(z.string()),
+		z.array(
+			z.object({
+				login: z.string(),
+			}),
+		),
+	]), // Can be string, array of strings, or array of objects
+	labels: z.array(
+		z.union([
+			z.string(),
+			z.object({
+				id: z.string(),
+				name: z.string(),
+				description: z.string().nullable().optional(),
+				color: z.string(),
+			}),
+		]),
+	), // Can be array of strings or objects
+	comments: z.array(InputCommentSchema),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 	closedAt: z.string().nullable(),
+});
+
+// Output validation schemas for the transformed data
+const OutputAuthorSchema = z.object({
+	login: z.string(),
+});
+
+const OutputCommentSchema = z.object({
+	id: z.string(),
+	author: OutputAuthorSchema,
+	body: z.string(),
+	createdAt: z.string(),
+	updatedAt: z.string().nullable().optional(),
+});
+
+const OutputIssueSchema = z.object({
+	number: z.number(),
+	title: z.string(),
+	body: z.string().nullable(),
+	state: z.string(),
+	stateReason: z.string().nullable().optional(),
+	author: z.union([z.string(), OutputAuthorSchema]), // Can be string or object
+	assignees: z.union([
+		z.string(),
+		z.array(z.string()),
+		z.array(
+			z.object({
+				login: z.string(),
+			}),
+		),
+	]), // Can be string, array of strings, or array of objects
+	labels: z.array(
+		z.union([
+			z.string(),
+			z.object({
+				id: z.string(),
+				name: z.string(),
+				description: z.string().nullable().optional(),
+				color: z.string(),
+			}),
+		]),
+	), // Can be array of strings or objects
+	comments: z.array(OutputCommentSchema),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+	closedAt: z.string().nullable(),
+});
+
+const OutputInfoSchema = z.object({
+	outputPath: z.string(),
+	outputPathAbs: z.string(),
 });
 
 function printUsage() {
@@ -186,7 +239,7 @@ async function fetchIssue(repo, issueId) {
 			if (code === 0) {
 				try {
 					const rawData = JSON.parse(stdout);
-					const validatedData = IssueSchema.parse(rawData);
+					const validatedData = InputIssueSchema.parse(rawData);
 
 					const transformedData = {
 						number: validatedData.number,
@@ -257,7 +310,7 @@ async function fetchIssues(repo, state, limit) {
 			if (code === 0) {
 				try {
 					const rawData = JSON.parse(stdout);
-					const validatedData = z.array(IssueSchema).parse(rawData);
+					const validatedData = z.array(InputIssueSchema).parse(rawData);
 
 					const transformedData = validatedData.map((issue) => ({
 						number: issue.number,
@@ -314,10 +367,33 @@ async function main() {
 				outputPath: outputPath,
 				outputPathAbs: outputPathAbs,
 			};
-			console.log(JSON.stringify(outputInfo, null, 2));
+
+			// Validate output info before returning
+			try {
+				const validatedOutputInfo = OutputInfoSchema.parse(outputInfo);
+				console.log(JSON.stringify(validatedOutputInfo, null, 2));
+			} catch (validationError) {
+				console.error("Output validation failed:", validationError.message);
+				console.error("Raw output:", JSON.stringify(outputInfo, null, 2));
+				process.exit(1);
+			}
 		} else {
-			// Output the transformed data as JSON
-			console.log(JSON.stringify(data, null, 2));
+			// Validate data before outputting
+			try {
+				let validatedData;
+				if (issueId) {
+					// Single issue
+					validatedData = OutputIssueSchema.parse(data);
+				} else {
+					// List of issues
+					validatedData = z.array(OutputIssueSchema).parse(data);
+				}
+				console.log(JSON.stringify(validatedData, null, 2));
+			} catch (validationError) {
+				console.error("Output validation failed:", validationError.message);
+				console.error("Raw output:", JSON.stringify(data, null, 2));
+				process.exit(1);
+			}
 		}
 	} catch (error) {
 		console.error("Error:", error.message);

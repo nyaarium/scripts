@@ -5,13 +5,13 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 
-// Schema definitions for the GitHub commit data
-const AuthorSchema = z.object({
+// Input validation schemas for GitHub API data
+const InputAuthorSchema = z.object({
 	login: z.string(),
 	name: z.string().nullable().optional(),
 });
 
-const FileSchema = z.object({
+const InputFileSchema = z.object({
 	filename: z.string(),
 	status: z.string(),
 	blob_url: z.string(),
@@ -19,7 +19,7 @@ const FileSchema = z.object({
 	patch: z.string().nullable().optional(),
 });
 
-const CommitSchema = z.object({
+const InputCommitSchema = z.object({
 	sha: z.string(),
 	commit: z.object({
 		author: z.object({
@@ -34,9 +34,9 @@ const CommitSchema = z.object({
 		}),
 		message: z.string(),
 	}),
-	author: AuthorSchema.nullable().optional(),
-	committer: AuthorSchema.nullable().optional(),
-	files: z.array(FileSchema),
+	author: InputAuthorSchema.nullable().optional(),
+	committer: InputAuthorSchema.nullable().optional(),
+	files: z.array(InputFileSchema),
 	stats: z
 		.object({
 			total: z.number(),
@@ -44,6 +44,28 @@ const CommitSchema = z.object({
 			deletions: z.number(),
 		})
 		.optional(),
+});
+
+// Output validation schemas for the transformed data
+const OutputFileSchema = z.object({
+	filename: z.string(),
+	status: z.string(),
+	urlWeb: z.string(),
+	urlRaw: z.string(),
+	patch: z.string().nullable().optional(),
+});
+
+const OutputCommitSchema = z.object({
+	id: z.string(),
+	date: z.string(),
+	author: z.string(),
+	message: z.string(),
+	files: z.array(OutputFileSchema),
+});
+
+const OutputInfoSchema = z.object({
+	outputPath: z.string(),
+	outputPathAbs: z.string(),
 });
 
 function printUsage() {
@@ -155,7 +177,7 @@ async function fetchCommit(repo, commitHash) {
 			if (code === 0) {
 				try {
 					const rawData = JSON.parse(stdout);
-					const validatedData = CommitSchema.parse(rawData);
+					const validatedData = InputCommitSchema.parse(rawData);
 
 					// Split commit message into headline and body
 					const messageLines = validatedData.commit.message.split("\n");
@@ -225,10 +247,26 @@ async function main() {
 				outputPath: outputPath,
 				outputPathAbs: outputPathAbs,
 			};
-			console.log(JSON.stringify(outputInfo, null, 2));
+
+			// Validate output info before returning
+			try {
+				const validatedOutputInfo = OutputInfoSchema.parse(outputInfo);
+				console.log(JSON.stringify(validatedOutputInfo, null, 2));
+			} catch (validationError) {
+				console.error("Output validation failed:", validationError.message);
+				console.error("Raw output:", JSON.stringify(outputInfo, null, 2));
+				process.exit(1);
+			}
 		} else {
-			// Output the transformed data as JSON
-			console.log(JSON.stringify(commitData, null, 2));
+			// Validate commit data before outputting
+			try {
+				const validatedCommitData = OutputCommitSchema.parse(commitData);
+				console.log(JSON.stringify(validatedCommitData, null, 2));
+			} catch (validationError) {
+				console.error("Output validation failed:", validationError.message);
+				console.error("Raw output:", JSON.stringify(commitData, null, 2));
+				process.exit(1);
+			}
 		}
 	} catch (error) {
 		console.error("Error:", error.message);

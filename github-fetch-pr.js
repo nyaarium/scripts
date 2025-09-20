@@ -5,33 +5,33 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 
-// Schema definitions for the GitHub PR data
-const AuthorSchema = z.object({
+// Input validation schemas for GitHub API data
+const InputAuthorSchema = z.object({
 	login: z.string(),
 	name: z.string().nullable().optional(),
 });
 
-const MergeCommitSchema = z.object({
+const InputMergeCommitSchema = z.object({
 	oid: z.string(),
 });
 
-const CommitSchema = z.object({
+const InputCommitSchema = z.object({
 	oid: z.string(),
 	committedDate: z.string(),
 	messageHeadline: z.string(),
 	messageBody: z.string().nullable(),
-	authors: z.array(AuthorSchema).optional(),
+	authors: z.array(InputAuthorSchema).optional(),
 });
 
-const CommentSchema = z.object({
+const InputCommentSchema = z.object({
 	id: z.string(),
-	author: AuthorSchema,
+	author: InputAuthorSchema,
 	body: z.string(),
 	createdAt: z.string(),
 	updatedAt: z.string().nullable().optional(),
 });
 
-const StatusCheckSchema = z.object({
+const InputStatusCheckSchema = z.object({
 	__typename: z.string(),
 	completedAt: z.string().nullable().optional(),
 	conclusion: z.string().nullable().optional(),
@@ -42,31 +42,101 @@ const StatusCheckSchema = z.object({
 	workflowName: z.string().nullable().optional(),
 });
 
-const PRListSchema = z.object({
+const InputPRListSchema = z.object({
 	number: z.number(),
 	state: z.string(),
-	author: AuthorSchema,
+	author: InputAuthorSchema,
 	title: z.string(),
 	body: z.string().nullable().optional(),
-	comments: z.array(CommentSchema).optional(),
+	comments: z.array(InputCommentSchema).optional(),
 	mergeStateStatus: z.string().optional(),
 	mergedAt: z.string().nullable().optional(),
-	mergeCommit: MergeCommitSchema.nullable().optional(),
-	commits: z.array(CommitSchema).optional(),
-	statusCheckRollup: z.array(StatusCheckSchema).nullable().optional(),
+	mergeCommit: InputMergeCommitSchema.nullable().optional(),
+	commits: z.array(InputCommitSchema).optional(),
+	statusCheckRollup: z.array(InputStatusCheckSchema).nullable().optional(),
 });
 
-const PRSchema = z.object({
+const InputPRSchema = z.object({
 	state: z.string(),
-	author: AuthorSchema,
+	author: InputAuthorSchema,
 	title: z.string(),
 	body: z.string().nullable(),
-	comments: z.array(CommentSchema),
+	comments: z.array(InputCommentSchema),
 	mergeStateStatus: z.string(),
 	mergedAt: z.string().nullable(),
-	mergeCommit: MergeCommitSchema.nullable(),
-	commits: z.array(CommitSchema),
-	statusCheckRollup: z.array(StatusCheckSchema).nullable().optional(),
+	mergeCommit: InputMergeCommitSchema.nullable(),
+	commits: z.array(InputCommitSchema),
+	statusCheckRollup: z.array(InputStatusCheckSchema).nullable().optional(),
+});
+
+// Output validation schemas for the transformed data
+const OutputAuthorSchema = z.object({
+	login: z.string(),
+	name: z.string().nullable().optional(),
+});
+
+const OutputMergeCommitSchema = z.union([
+	z.object({
+		oid: z.string(),
+	}),
+	z.string(),
+]);
+
+const OutputCommitSchema = z.object({
+	id: z.string(),
+	date: z.string(),
+	author: z.string(),
+	message: z.string(),
+});
+
+const OutputCommentSchema = z.object({
+	id: z.string(),
+	author: OutputAuthorSchema,
+	body: z.string(),
+	createdAt: z.string(),
+	updatedAt: z.string().nullable().optional(),
+});
+
+const OutputStatusCheckSchema = z.object({
+	__typename: z.string(),
+	completedAt: z.string().nullable().optional(),
+	conclusion: z.string().nullable().optional(),
+	detailsUrl: z.string().nullable().optional(),
+	name: z.string(),
+	startedAt: z.string().nullable().optional(),
+	status: z.string(),
+	workflowName: z.string().nullable().optional(),
+});
+
+const OutputPRSchema = z.object({
+	state: z.string(),
+	title: z.string(),
+	body: z.string().nullable().optional(),
+	comments: z.array(OutputCommentSchema).optional(),
+	mergeStateStatus: z.string().nullable().optional(),
+	mergedAt: z.string().nullable().optional(),
+	mergeCommit: OutputMergeCommitSchema.nullable().optional(),
+	commits: z.array(OutputCommitSchema).optional(),
+	statusCheckRollup: z.array(OutputStatusCheckSchema).optional(),
+});
+
+const OutputPRListSchema = z.object({
+	number: z.number(),
+	state: z.string(),
+	author: OutputAuthorSchema,
+	title: z.string(),
+	body: z.string().nullable().optional(),
+	comments: z.array(OutputCommentSchema).optional(),
+	mergeStateStatus: z.string().optional(),
+	mergedAt: z.string().nullable().optional(),
+	mergeCommit: OutputMergeCommitSchema.nullable().optional(),
+	commits: z.array(OutputCommitSchema).optional(),
+	statusCheckRollup: z.array(OutputStatusCheckSchema).nullable().optional(),
+});
+
+const OutputInfoSchema = z.object({
+	outputPath: z.string(),
+	outputPathAbs: z.string(),
 });
 
 function printUsage() {
@@ -216,7 +286,7 @@ async function fetchPR(repo, prId, fetchFiles = false) {
 			if (code === 0) {
 				try {
 					const rawData = JSON.parse(stdout);
-					const validatedData = PRSchema.parse(rawData);
+					const validatedData = InputPRSchema.parse(rawData);
 
 					// Fetch detailed commit information for each commit
 					const detailedCommits = await Promise.all(
@@ -397,7 +467,7 @@ async function fetchPRs(repo, state, limit) {
 			if (code === 0) {
 				try {
 					const rawData = JSON.parse(stdout);
-					const validatedData = z.array(PRListSchema).parse(rawData);
+					const validatedData = z.array(InputPRListSchema).parse(rawData);
 
 					const transformedData = validatedData.map((pr) => ({
 						number: pr.number,
@@ -472,10 +542,33 @@ async function main() {
 				outputPath: outputPath,
 				outputPathAbs: outputPathAbs,
 			};
-			console.log(JSON.stringify(outputInfo, null, 2));
+
+			// Validate output info before returning
+			try {
+				const validatedOutputInfo = OutputInfoSchema.parse(outputInfo);
+				console.log(JSON.stringify(validatedOutputInfo, null, 2));
+			} catch (validationError) {
+				console.error("Output validation failed:", validationError.message);
+				console.error("Raw output:", JSON.stringify(outputInfo, null, 2));
+				process.exit(1);
+			}
 		} else {
-			// Output the transformed data as JSON
-			console.log(JSON.stringify(data, null, 2));
+			// Validate data before outputting
+			try {
+				let validatedData;
+				if (prId) {
+					// Single PR
+					validatedData = OutputPRSchema.parse(data);
+				} else {
+					// List of PRs
+					validatedData = z.array(OutputPRListSchema).parse(data);
+				}
+				console.log(JSON.stringify(validatedData, null, 2));
+			} catch (validationError) {
+				console.error("Output validation failed:", validationError.message);
+				console.error("Raw output:", JSON.stringify(data, null, 2));
+				process.exit(1);
+			}
 		}
 	} catch (error) {
 		console.error("Error:", error.message);
