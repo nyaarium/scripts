@@ -234,8 +234,6 @@ async function main() {
 	try {
 		const { repo, commitHash, outputPath } = parseArgs();
 
-		console.log(`Fetching commit ${commitHash}${repo ? ` from ${repo}` : ""}...`);
-
 		const commitData = await fetchCommit(repo, commitHash);
 
 		if (outputPath) {

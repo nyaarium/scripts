@@ -330,8 +330,6 @@ async function fetchPR(repo, prId, fetchFiles = false) {
 										patch: file.patch || null,
 									}));
 
-									console.log(commit);
-
 									return {
 										id: commit.oid,
 										date: commit.committedDate,
@@ -519,17 +517,9 @@ async function main() {
 		let data;
 		if (prId) {
 			// Fetch single PR
-			console.log(`Fetching PR ${prId}${repo ? ` from ${repo}` : ""}...`);
-			if (fetchFiles) {
-				console.log("File details will be fetched for each commit");
-			}
 			data = await fetchPR(repo, prId, fetchFiles);
 		} else {
 			// Fetch list of PRs - silently disable fetchFiles in list mode
-			if (fetchFiles) {
-				console.log("Note: --fetch-files is ignored in list mode to prevent excessive API calls");
-			}
-			console.log(`Fetching ${state} PRs${repo ? ` from ${repo}` : ""} (limit: ${limit})...`);
 			data = await fetchPRs(repo, state, limit);
 		}
 

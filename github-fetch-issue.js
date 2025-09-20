@@ -350,11 +350,9 @@ async function main() {
 		let data;
 		if (issueId) {
 			// Fetch single issue
-			console.log(`Fetching issue ${issueId}${repo ? ` from ${repo}` : ""}...`);
 			data = await fetchIssue(repo, issueId);
 		} else {
 			// Fetch list of issues
-			console.log(`Fetching ${state} issues${repo ? ` from ${repo}` : ""} (limit: ${limit})...`);
 			data = await fetchIssues(repo, state, limit);
 		}
 
