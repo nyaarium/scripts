@@ -110,6 +110,7 @@ const OutputStatusCheckSchema = z.object({
 
 const OutputPRSchema = z.object({
 	state: z.string(),
+	author: z.string(),
 	title: z.string(),
 	body: z.string().nullable().optional(),
 	comments: z.array(OutputCommentSchema).optional(),
@@ -123,7 +124,7 @@ const OutputPRSchema = z.object({
 const OutputPRListSchema = z.object({
 	number: z.number(),
 	state: z.string(),
-	author: OutputAuthorSchema,
+	author: z.string(),
 	title: z.string(),
 	body: z.string().nullable().optional(),
 	comments: z.array(OutputCommentSchema).optional(),
