@@ -82,6 +82,7 @@ const OutputResultSchema = z.object({
 const OutputRepositorySettingsSchema = z.object({
 	allowAutoMerge: z.boolean(),
 	linearHistory: z.boolean(),
+	isDraft: z.boolean(),
 });
 
 const OutputErrorSchema = z.object({
@@ -229,6 +230,8 @@ async function checkAutoMergeEnabled(repo) {
 						allowAutoMerge: repoData.allow_auto_merge === true,
 						linearHistory:
 							repoData.merge_commit_message === "PR_TITLE" && repoData.merge_commit_title === "PR_TITLE",
+						isDraft:
+							repoData.archived === false && repoData.disabled === false && repoData.private === false,
 					});
 				} catch (error) {
 					reject(new Error(`Failed to parse repository data: ${error.message}`));
@@ -611,30 +614,23 @@ async function main() {
 	try {
 		const { repo, prNumbers, shouldMerge } = parseArgs();
 
-		console.log(`Approving ${prNumbers.length} PR(s)${repo ? ` in ${repo}` : ""}...`);
+		const results = [];
+		const errors = [];
 
 		// Check repository settings once if merge is requested
 		let repoSettings = null;
 		if (shouldMerge) {
 			try {
-				console.log("Checking repository settings...");
 				repoSettings = await checkAutoMergeEnabled(repo);
-				console.log(`Auto-merge ${repoSettings.allowAutoMerge ? "enabled" : "disabled"} for repository`);
-				console.log(`Linear history ${repoSettings.linearHistory ? "required" : "not required"}`);
 			} catch (error) {
-				console.error(`Warning: Could not check repository settings: ${error.message}`);
-				console.log("Proceeding with manual merge...");
+				// Repository settings check failed, proceed without them
 			}
 		}
-
-		const results = [];
-		const errors = [];
 
 		// Process PRs sequentially to avoid overwhelming the API
 		for (const prNumber of prNumbers) {
 			try {
 				// Check if already approved by current user
-				console.log(`Checking existing approval for PR ${prNumber}...`);
 				let alreadyApproved = false;
 				let authWarning = null;
 
@@ -642,24 +638,18 @@ async function main() {
 					alreadyApproved = await checkExistingApproval(repo, prNumber);
 				} catch (error) {
 					if (error.message === "NOT_AUTHENTICATED") {
-						console.log(`⚠️  GitHub CLI not authenticated - cannot check existing approvals`);
-						console.log(`   Please run: gh auth login`);
 						authWarning = "GitHub CLI not authenticated - please run 'gh auth login'";
 						alreadyApproved = false; // Assume not approved and proceed
 					} else {
-						console.log(`⚠️  Could not check existing approvals: ${error.message}`);
 						alreadyApproved = false; // Assume not approved and proceed
 					}
 				}
 
 				let result;
 				if (alreadyApproved) {
-					console.log(`✓ PR ${prNumber} already approved by current user - skipping approval`);
 					result = { success: true, prNumber, output: "Already approved", skipped: true };
 				} else {
-					console.log(`Approving PR ${prNumber}...`);
 					result = await approvePR(repo, prNumber);
-					console.log(`✓ Approved PR ${prNumber}`);
 				}
 
 				// Add auth warning to result if present
@@ -673,11 +663,8 @@ async function main() {
 				if (shouldMerge) {
 					try {
 						// Check CI status and PR mergeability
-						console.log(`Checking CI status for PR ${prNumber}...`);
 						const ciStatus = await checkCIStatus(repo, prNumber);
 						const prStatus = await checkPRStatus(repo, prNumber);
-
-						console.log(`CI Status: ${ciStatus.overall} - ${ciStatus.message}`);
 
 						// Determine merge strategy based on validation
 						let mergeStrategy = null;
@@ -731,12 +718,8 @@ async function main() {
 						}
 
 						if (canProceed && mergeStrategy) {
-							console.log(`Merging PR ${prNumber} (${mergeStrategy})...`);
-							console.log(`Reason: ${mergeMessage}`);
-
 							if (mergeStrategy === "auto-merge") {
 								const mergeResult = await enableAutoMerge(repo, prNumber);
-								console.log(`✓ Auto-merge enabled for PR ${prNumber}`);
 								result.mergeResult = {
 									strategy: "auto-merge",
 									message: mergeMessage,
@@ -745,7 +728,6 @@ async function main() {
 								};
 							} else {
 								const mergeResult = await manualMerge(repo, prNumber);
-								console.log(`✓ Merged PR ${prNumber}`);
 								result.mergeResult = {
 									strategy: "manual-merge",
 									message: mergeMessage,
@@ -754,7 +736,6 @@ async function main() {
 								};
 							}
 						} else {
-							console.log(`✗ Cannot merge PR ${prNumber}: ${mergeMessage}`);
 							result.mergeResult = {
 								strategy: "blocked",
 								message: mergeMessage,
@@ -774,13 +755,11 @@ async function main() {
 					} catch (error) {
 						const errorResult = { prNumber, error: `Merge validation failed: ${error.message}` };
 						errors.push(errorResult);
-						console.error(`✗ Failed to validate/merge PR ${prNumber}: ${error.message}`);
 					}
 				}
 			} catch (error) {
 				const errorResult = { prNumber, error: error.message };
 				errors.push(errorResult);
-				console.error(`✗ Failed to approve PR ${prNumber}: ${error.message}`);
 			}
 		}
 
