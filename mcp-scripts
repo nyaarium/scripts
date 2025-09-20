@@ -28,7 +28,7 @@ mcpServer.registerTool(
 	},
 	async ({ paths }) => {
 		return await new Promise((resolve) => {
-			const cmdPath = path.join(scriptDir, "tree-md");
+			const cmdPath = path.join(scriptDir, "tree-md.js");
 
 			const child = spawn(cmdPath, paths, {
 				stdio: ["ignore", "pipe", "pipe"],
@@ -92,7 +92,7 @@ mcpServer.registerTool(
 	},
 	async ({ repo, commitHash, outputPath }) => {
 		return await new Promise((resolve) => {
-			const cmdPath = path.join(scriptDir, "github-fetch-commit");
+			const cmdPath = path.join(scriptDir, "github-fetch-commit.js");
 
 			// Build arguments array - order doesn't matter for the new parser
 			let args = [];
@@ -201,7 +201,7 @@ mcpServer.registerTool(
 	},
 	async ({ repo, prId, state, limit, fetchFiles, outputPath }) => {
 		return await new Promise((resolve) => {
-			const cmdPath = path.join(scriptDir, "github-fetch-pr");
+			const cmdPath = path.join(scriptDir, "github-fetch-pr.js");
 
 			let args = [];
 
@@ -309,7 +309,7 @@ mcpServer.registerTool(
 	},
 	async ({ repo, issueId, state, limit, outputPath }) => {
 		return await new Promise((resolve) => {
-			const cmdPath = path.join(scriptDir, "github-fetch-issue");
+			const cmdPath = path.join(scriptDir, "github-fetch-issue.js");
 
 			let args = [];
 
@@ -364,6 +364,203 @@ mcpServer.registerTool(
 						{
 							type: "text",
 							text: `Failed to run github-fetch-issue: ${err.message}`,
+						},
+					],
+					isError: true,
+				});
+			});
+		});
+	},
+);
+
+mcpServer.registerTool(
+	"githubApprovePr",
+	{
+		title: "github-approve-pr",
+		description:
+			"Approve and optionally merge GitHub pull requests using the local github-approve-pr script. Supports both count mode (-n) and range mode (-r).",
+		inputSchema: {
+			repo: z
+				.string()
+				.optional()
+				.describe(
+					"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
+				),
+			prNumbers: z
+				.array(z.string())
+				.nonempty()
+				.describe("Array of PR numbers to approve (e.g., ['123', '456'])."),
+			merge: z
+				.boolean()
+				.optional()
+				.default(false)
+				.describe("Whether to merge the PR after approval (auto-merge if enabled, manual merge otherwise)."),
+		},
+	},
+	async ({ repo, prNumbers, merge }) => {
+		return await new Promise((resolve) => {
+			const cmdPath = path.join(scriptDir, "github-approve-pr.js");
+
+			let args = [];
+
+			if (repo) {
+				args.push(repo);
+			}
+
+			// Add PR numbers - if single number, add directly; if multiple, add as JSON array
+			if (prNumbers.length === 1) {
+				args.push(prNumbers[0]);
+			} else {
+				args.push(JSON.stringify(prNumbers));
+			}
+
+			if (merge) {
+				args.push("--merge");
+			}
+
+			const child = spawn(cmdPath, args, {
+				stdio: ["ignore", "pipe", "pipe"],
+			});
+			let stdout = "";
+			let stderr = "";
+
+			child.stdout.on("data", (data) => {
+				stdout += data.toString();
+			});
+			child.stderr.on("data", (data) => {
+				stderr += data.toString();
+			});
+			child.on("close", (code) => {
+				if (code === 0) {
+					resolve({
+						content: [{ type: "text", text: stdout || "(no output)" }],
+					});
+				} else {
+					resolve({
+						content: [
+							{
+								type: "text",
+								text: stderr || `github-approve-pr exited with code ${code}`,
+							},
+						],
+						isError: true,
+					});
+				}
+			});
+			child.on("error", (err) => {
+				resolve({
+					content: [
+						{
+							type: "text",
+							text: `Failed to run github-approve-pr: ${err.message}`,
+						},
+					],
+					isError: true,
+				});
+			});
+		});
+	},
+);
+
+mcpServer.registerTool(
+	"githubGitLog",
+	{
+		title: "github-git-log",
+		description:
+			"Fetch structured git log data using the local github-git-log script. Supports both count mode (-n) and range mode (-r).",
+		inputSchema: {
+			count: z
+				.number()
+				.int()
+				.min(1)
+				.max(10000)
+				.optional()
+				.describe("Number of log entries to fetch (requires -n flag)."),
+			range: z.string().optional().describe("Git range (single hash or hash..hash range, requires -r flag)."),
+			outputPath: z
+				.string()
+				.optional()
+				.describe(
+					"Optional path to write JSON output (relative or absolute). If provided, returns path info instead of full data.",
+				),
+		},
+	},
+	async ({ count, range, outputPath }) => {
+		return await new Promise((resolve) => {
+			const cmdPath = path.join(scriptDir, "github-git-log.js");
+
+			let args = [];
+
+			// Add count or range (mutually exclusive)
+			if (count !== undefined && range !== undefined) {
+				resolve({
+					content: [
+						{
+							type: "text",
+							text: "Error: Cannot specify both count and range",
+						},
+					],
+					isError: true,
+				});
+				return;
+			}
+
+			if (count !== undefined) {
+				args.push("-n", count.toString());
+			} else if (range !== undefined) {
+				args.push("-r", range);
+			} else {
+				resolve({
+					content: [
+						{
+							type: "text",
+							text: "Error: Either count or range is required",
+						},
+					],
+					isError: true,
+				});
+				return;
+			}
+
+			if (outputPath) {
+				args.push("--output-path", outputPath);
+			}
+
+			const child = spawn(cmdPath, args, {
+				stdio: ["ignore", "pipe", "pipe"],
+			});
+			let stdout = "";
+			let stderr = "";
+
+			child.stdout.on("data", (data) => {
+				stdout += data.toString();
+			});
+			child.stderr.on("data", (data) => {
+				stderr += data.toString();
+			});
+			child.on("close", (code) => {
+				if (code === 0) {
+					resolve({
+						content: [{ type: "text", text: stdout || "(no output)" }],
+					});
+				} else {
+					resolve({
+						content: [
+							{
+								type: "text",
+								text: stderr || `github-git-log exited with code ${code}`,
+							},
+						],
+						isError: true,
+					});
+				}
+			});
+			child.on("error", (err) => {
+				resolve({
+					content: [
+						{
+							type: "text",
+							text: `Failed to run github-git-log: ${err.message}`,
 						},
 					],
 					isError: true,
