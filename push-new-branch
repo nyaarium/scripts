@@ -1,6 +1,10 @@
 #!/bin/bash
 
-source ~/.env
+# Load .env from script directory if it exists
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    source "$SCRIPT_DIR/.env"
+fi
 
 
 # Check if GitHub CLI is ready
