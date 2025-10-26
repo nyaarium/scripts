@@ -2,16 +2,47 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import dotenv from "dotenv";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { toolsCursorAgent } from "./manage-agent.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+
+dotenv.config({
+	path: path.join(scriptDir, ".env"),
+});
 
 const mcpServer = new McpServer({
 	name: "scripts-mcp",
 	version: "0.1.0",
+});
+
+// Register CursorAgent tools
+toolsCursorAgent.forEach((tool) => {
+	mcpServer.registerTool(
+		tool.name,
+		{
+			title: tool.title,
+			description: tool.description,
+			inputSchema: tool.schema.shape,
+		},
+		async (...args) => {
+			try {
+				const result = await tool.handler(...args);
+				return {
+					content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+				};
+			} catch (error) {
+				return {
+					content: [{ type: "text", text: `Error ${tool.operation}: ${error.message}` }],
+					isError: true,
+				};
+			}
+		},
+	);
 });
 
 mcpServer.registerTool(
