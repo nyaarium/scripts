@@ -2,6 +2,7 @@
 
 // https://cursor.com/docs/background-agent/api/overview
 
+import { spawn } from "node:child_process";
 import https from "node:https";
 import { z } from "zod";
 
@@ -43,6 +44,10 @@ const AddFollowUpInputSchema = z.object({
 });
 
 const EmptySchema = z.object({});
+
+const MergePRInputSchema = z.object({
+	agentId: z.string().describe(`The agent ID`),
+});
 
 const toolDefinitions = {
 	cursorLaunchAgent: {
@@ -159,9 +164,344 @@ const toolDefinitions = {
 			};
 		},
 	},
+	cursorMergePullRequest: {
+		name: "cursorMergePullRequest",
+		title: `Merge Cursor Agent Pull Request`,
+		description: `
+Merge a pull request created by a Cursor background agent.
+
+CRITICAL:
+You MUST verbally ask the user for explicit confirmation before calling this tool.
+Your confirmation message MUST include the repository name (owner/repo) and PR number.
+`.trim(),
+		operation: `merging pull request`,
+		schema: MergePRInputSchema,
+		async handler({ agentId }) {
+			try {
+				// Get agent status to find PR URL
+				const agentStatus = await toolDefinitions.cursorGetAgentStatus.handler({ agentId });
+
+				// Check if PR URL exists
+				if (!agentStatus.target?.prUrl) {
+					return {
+						success: false,
+						message: "No changes made, nothing to PR.",
+						agentStatus,
+					};
+				}
+
+				// Check GitHub CLI availability
+				const ghStatus = await checkGHCLI();
+				if (!ghStatus.available) {
+					return {
+						success: false,
+						message: `GitHub CLI not found: ${ghStatus.error}`,
+						agentStatus,
+					};
+				}
+				if (!ghStatus.authenticated) {
+					return {
+						success: false,
+						message: `GitHub CLI not authenticated: ${ghStatus.error}`,
+						agentStatus,
+					};
+				}
+
+				// Extract repo info from PR URL
+				const repoInfo = extractRepoFromURL(agentStatus.target.prUrl);
+				const repo = `${repoInfo.owner}/${repoInfo.repo}`;
+
+				// Collect comprehensive PR stats
+				const prStats = await collectPRStats(repo, repoInfo.prNumber);
+
+				// Check PR state
+				if (prStats.merged) {
+					return {
+						success: false,
+						message: "This PR has already been merged.",
+						agentStatus,
+						prStats,
+					};
+				}
+				if (prStats.state !== "open") {
+					return {
+						success: false,
+						message: "This PR has been canceled.",
+						agentStatus,
+						prStats,
+					};
+				}
+
+				// Get repository settings
+				const repoSettings = await checkRepositorySettings(repo);
+
+				// Attempt rebase
+				const rebaseResult = await attemptRebase(repo, repoInfo.prNumber);
+				if (!rebaseResult.success) {
+					if (rebaseResult.needsManualRebase) {
+						return {
+							success: false,
+							message: `Cannot rebase to \`${prStats.baseRef}\` due to conflicts. Recommended course of action is to use \`cursorAddFollowUp\` asking it to "Resolve the conflicts of rebasing \`${prStats.headRef}\` onto \`${prStats.baseRef}\`. Confirm it's in working order, then force push \`${prStats.headRef}\`."`,
+							agentStatus,
+							prStats,
+							repoSettings,
+							rebaseError: rebaseResult.error,
+						};
+					} else {
+						return {
+							success: false,
+							message: `Rebase failed: ${rebaseResult.error}`,
+							agentStatus,
+							prStats,
+							repoSettings,
+						};
+					}
+				}
+
+				// Merge the PR
+				const useAutoMerge = repoSettings.allowAutoMerge;
+				const mergeResult = await mergePR(repo, repoInfo.prNumber, useAutoMerge);
+
+				return {
+					success: true,
+					message: `Successfully ${useAutoMerge ? "auto-merged" : "merged"} PR #${repoInfo.prNumber}`,
+					agentStatus,
+					prStats,
+					repoSettings,
+					rebaseResult,
+					mergeResult,
+				};
+			} catch (error) {
+				return {
+					success: false,
+					message: `Error merging PR: ${error.message}`,
+					error: error.message,
+				};
+			}
+		},
+	},
 };
 
 export const toolsCursorAgent = Object.values(toolDefinitions);
+
+// Helper function to check if GitHub CLI is available and authenticated
+async function checkGHCLI() {
+	return new Promise((resolve) => {
+		const child = spawn("gh", ["auth", "status"], {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		let stdout = "";
+		let stderr = "";
+
+		child.stdout.on("data", (data) => {
+			stdout += data.toString();
+		});
+
+		child.stderr.on("data", (data) => {
+			stderr += data.toString();
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				resolve({ available: true, authenticated: true });
+			} else {
+				if (stderr.includes("not authenticated") || stderr.includes("gh auth login")) {
+					resolve({ available: true, authenticated: false, error: "GitHub CLI not authenticated" });
+				} else {
+					resolve({ available: false, authenticated: false, error: "GitHub CLI not found" });
+				}
+			}
+		});
+
+		child.on("error", () => {
+			resolve({ available: false, authenticated: false, error: "GitHub CLI not found" });
+		});
+	});
+}
+
+// Helper function to extract repo info from GitHub PR URL
+function extractRepoFromURL(prUrl) {
+	const match = prUrl.match(/https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
+	if (!match) {
+		throw new Error(`Invalid GitHub PR URL: ${prUrl}`);
+	}
+	return {
+		owner: match[1],
+		repo: match[2],
+		prNumber: match[3],
+	};
+}
+
+// Helper function to collect comprehensive PR statistics
+async function collectPRStats(repo, prNumber) {
+	return new Promise((resolve, reject) => {
+		// Get PR details
+		const cmdArgs = ["api", `repos/${repo}/pulls/${prNumber}`];
+		const child = spawn("gh", cmdArgs, {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		let stdout = "";
+		let stderr = "";
+
+		child.stdout.on("data", (data) => {
+			stdout += data.toString();
+		});
+
+		child.stderr.on("data", (data) => {
+			stderr += data.toString();
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				try {
+					const prData = JSON.parse(stdout);
+					resolve({
+						exists: true,
+						state: prData.state,
+						merged: prData.merged,
+						mergeable: prData.mergeable,
+						mergeableState: prData.mergeable_state,
+						headSha: prData.head.sha,
+						baseRef: prData.base.ref,
+						headRef: prData.head.ref,
+						title: prData.title,
+						url: prData.html_url,
+					});
+				} catch (error) {
+					reject(new Error(`Failed to parse PR data: ${error.message}`));
+				}
+			} else {
+				reject(new Error(`Failed to get PR details: ${stderr.trim()}`));
+			}
+		});
+
+		child.on("error", (error) => {
+			reject(new Error(`Failed to execute GitHub API: ${error.message}`));
+		});
+	});
+}
+
+// Helper function to check repository settings
+async function checkRepositorySettings(repo) {
+	return new Promise((resolve, reject) => {
+		const cmdArgs = ["api", `repos/${repo}`];
+		const child = spawn("gh", cmdArgs, {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		let stdout = "";
+		let stderr = "";
+
+		child.stdout.on("data", (data) => {
+			stdout += data.toString();
+		});
+
+		child.stderr.on("data", (data) => {
+			stderr += data.toString();
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				try {
+					const repoData = JSON.parse(stdout);
+					resolve({
+						allowAutoMerge: repoData.allow_auto_merge === true,
+						linearHistory:
+							repoData.merge_commit_message === "PR_TITLE" && repoData.merge_commit_title === "PR_TITLE",
+					});
+				} catch (error) {
+					reject(new Error(`Failed to parse repository data: ${error.message}`));
+				}
+			} else {
+				reject(new Error(`Failed to check repository settings: ${stderr.trim()}`));
+			}
+		});
+
+		child.on("error", (error) => {
+			reject(new Error(`Failed to execute GitHub API: ${error.message}`));
+		});
+	});
+}
+
+// Helper function to attempt rebase
+async function attemptRebase(repo, prNumber) {
+	return new Promise((resolve, reject) => {
+		const cmdArgs = ["api", `repos/${repo}/pulls/${prNumber}/update-branch`, "--method", "PUT"];
+		const child = spawn("gh", cmdArgs, {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		let stdout = "";
+		let stderr = "";
+
+		child.stdout.on("data", (data) => {
+			stdout += data.toString();
+		});
+
+		child.stderr.on("data", (data) => {
+			stderr += data.toString();
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				resolve({ success: true });
+			} else {
+				// Parse error details from gh CLI output
+				const errorMsg = stderr.trim();
+				const needsManualRebase = errorMsg.includes("conflict") || errorMsg.includes("merge conflict");
+				resolve({
+					success: false,
+					needsManualRebase,
+					error: errorMsg,
+				});
+			}
+		});
+
+		child.on("error", (error) => {
+			reject(new Error(`Failed to execute rebase: ${error.message}`));
+		});
+	});
+}
+
+// Helper function to merge PR
+async function mergePR(repo, prNumber, useAutoMerge = false) {
+	return new Promise((resolve, reject) => {
+		const cmdArgs = ["pr", "merge", prNumber, "--merge"];
+		if (useAutoMerge) {
+			cmdArgs.splice(2, 0, "--auto");
+		}
+		cmdArgs.splice(2, 0, "--repo", repo);
+
+		const child = spawn("gh", cmdArgs, {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		let stdout = "";
+		let stderr = "";
+
+		child.stdout.on("data", (data) => {
+			stdout += data.toString();
+		});
+
+		child.stderr.on("data", (data) => {
+			stderr += data.toString();
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				resolve({ success: true, output: stdout.trim() });
+			} else {
+				reject(new Error(`Failed to merge PR: ${stderr.trim()}`));
+			}
+		});
+
+		child.on("error", (error) => {
+			reject(new Error(`Failed to execute merge: ${error.message}`));
+		});
+	});
+}
 
 function makeRequest(endpoint, method, data = null) {
 	const apiKey = process.env.CURSOR_AGENT_KEY;
