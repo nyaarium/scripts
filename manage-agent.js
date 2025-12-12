@@ -56,7 +56,11 @@ const toolDefinitions = {
 		description: `Launch a NEW Cursor background agent to work on your repository. Use this for starting fresh work.`,
 		operation: `launching agent`,
 		schema: AgentDataSchema,
-		async handler(agentData) {
+		async handler(params) {
+			console.log(JSON.stringify(params, null, 2));
+
+			const { agentData } = params;
+
 			const validatedData = AgentDataSchema.parse(agentData);
 			return makeRequest("/v0/agents", "POST", validatedData);
 		},
@@ -67,7 +71,11 @@ const toolDefinitions = {
 		description: `Get the current status and results of a Cursor background agent.`,
 		operation: `getting agent status`,
 		schema: AgentIdSchema,
-		async handler({ agentId }) {
+		async handler(params) {
+			console.log(JSON.stringify(params, null, 2));
+
+			const { agentId } = params;
+
 			return makeRequest(`/v0/agents/${agentId}`, "GET");
 		},
 	},

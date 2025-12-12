@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { toolsCursorAgent } from "./manage-agent.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -29,9 +30,9 @@ toolsCursorAgent.forEach((tool) => {
 			description: tool.description,
 			inputSchema: tool.schema.shape,
 		},
-		async (...args) => {
+		async (args) => {
 			try {
-				const result = await tool.handler(...args);
+				const result = await tool.handler(args);
 				return {
 					content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
 				};

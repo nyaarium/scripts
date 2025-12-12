@@ -1,4 +1,14 @@
+# Node
 node_modules/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+py-envs/
 package-lock.json
 *.env
 *.key
