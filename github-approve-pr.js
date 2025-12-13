@@ -398,9 +398,9 @@ async function checkCIStatus(repo, prNumber) {
 	});
 }
 
-async function enableAutoMerge(repo, prNumber) {
+async function enableAutoMerge(mode, repo, prNumber) {
 	return new Promise((resolve, reject) => {
-		const cmdArgs = ["pr", "merge", prNumber, "--auto", "--merge"];
+		const cmdArgs = ["pr", "merge", prNumber, "--auto", "--merge", `-${mode}`];
 
 		if (repo) {
 			cmdArgs.splice(2, 0, "--repo", repo);
@@ -719,7 +719,16 @@ async function main() {
 
 						if (canProceed && mergeStrategy) {
 							if (mergeStrategy === "auto-merge") {
-								const mergeResult = await enableAutoMerge(repo, prNumber);
+								let mergeResult = "";
+
+								if (repoSettings?.allowMergeCommit) {
+									mergeResult = await enableAutoMerge("m", repo, prNumber);
+								} else if (repoSettings?.allowRebaseMerge) {
+									mergeResult = await enableAutoMerge("r", repo, prNumber);
+								} else if (repoSettings?.allowSquashMerge) {
+									mergeResult = await enableAutoMerge("s", repo, prNumber);
+								}
+
 								result.mergeResult = {
 									strategy: "auto-merge",
 									message: mergeMessage,

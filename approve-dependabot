@@ -56,12 +56,17 @@ if [ $gh_ready_status -ne 0 ]; then
 fi
 
 # Fetch open pull requests number, author (app/dependabot), title
-gh_prs=$(gh pr list --limit 100 --state open --json number,author,title | jq -c '.[]')
+gh_prs=$(gh pr list --limit 100 --state open --json number,isDraft,author,title | jq -c '.[]')
 
 echo "$gh_prs" | while read -r pr; do
   pr_number=$(echo "$pr" | jq -r '.number')
+  pr_isDraft=$(echo "$pr" | jq -r '.isDraft')
   pr_author=$(echo "$pr" | jq -r '.author.login')
   pr_title=$(echo "$pr" | jq -r '.title')
+
+  if [ "$pr_isDraft" == "true" ]; then
+    continue
+  fi
 
   # Dependabot
   if [ "$pr_author" == "app/dependabot" ]; then
@@ -74,7 +79,19 @@ echo "$gh_prs" | while read -r pr; do
 
     echo "Approving: [$pr_number] $pr_title"
 
-    gh pr merge "$pr_number" --auto -m
+    ALLOWED_MERGE_TYPES_JSON=$(gh api repos/atelier-nyaarium/eve-bot --jq '{ merge:.allow_merge_commit, rebase:.allow_rebase_merge, squash:.allow_squash_merge }')
+    MERGE_ALLOWED=$(echo "$ALLOWED_MERGE_TYPES_JSON" | jq -r '.merge')
+    REBASE_ALLOWED=$(echo "$ALLOWED_MERGE_TYPES_JSON" | jq -r '.rebase')
+    SQUASH_ALLOWED=$(echo "$ALLOWED_MERGE_TYPES_JSON" | jq -r '.squash')
+
+    if [ "$MERGE_ALLOWED" == "true" ]; then
+      gh pr merge "$pr_number" --auto -m
+    elif [ "$REBASE_ALLOWED" == "true" ]; then
+      gh pr merge "$pr_number" --auto -r
+    elif [ "$SQUASH_ALLOWED" == "true" ]; then
+      gh pr merge "$pr_number" --auto -s
+    fi
+
     gh pr review --approve "$pr_number"
   fi
 
@@ -83,7 +100,19 @@ echo "$gh_prs" | while read -r pr; do
     if [[ "$pr_title" =~ "Update dist/ files" ]]; then
       echo "Approving: [$pr_number] $pr_title"
 
-      gh pr merge "$pr_number" --auto -m
+      ALLOWED_MERGE_TYPES_JSON=$(gh api repos/atelier-nyaarium/eve-bot --jq '{ merge:.allow_merge_commit, rebase:.allow_rebase_merge, squash:.allow_squash_merge }')
+      MERGE_ALLOWED=$(echo "$ALLOWED_MERGE_TYPES_JSON" | jq -r '.merge')
+      REBASE_ALLOWED=$(echo "$ALLOWED_MERGE_TYPES_JSON" | jq -r '.rebase')
+      SQUASH_ALLOWED=$(echo "$ALLOWED_MERGE_TYPES_JSON" | jq -r '.squash')
+
+      if [ "$MERGE_ALLOWED" == "true" ]; then
+        gh pr merge "$pr_number" --auto -m
+      elif [ "$REBASE_ALLOWED" == "true" ]; then
+        gh pr merge "$pr_number" --auto -r
+      elif [ "$SQUASH_ALLOWED" == "true" ]; then
+        gh pr merge "$pr_number" --auto -s
+      fi
+
       gh pr review --approve "$pr_number"
     fi
   fi

@@ -43,6 +43,7 @@ fi
 
 
 pr_title=""
+pr_number=""
 create_pr="n"
 auto_merge="n"
 
@@ -163,8 +164,30 @@ if [ "$create_pr" = "y" ] && [ -n "$pr_title" ]; then
   if [ -n "$pr_url" ]; then
     echo "✅ Pull request created: $pr_url"
 
+    pr_number=$(gh pr view "$pr_url" --json number --jq '.number' 2>/dev/null || true)
+    if [ -z "$pr_number" ]; then
+      pr_number=$(echo "$pr_url" | sed -n 's#.*/\([0-9]\+\)$#\1#p')
+    fi
+
     if [ "$auto_merge" = "y" ]; then
-      gh pr merge -m --auto "$pr_url"
+      if [ -z "$pr_number" ]; then
+        echo "Unable to determine PR number; skipping auto-merge."
+      else
+        ALLOWED_MERGE_TYPES_JSON=$(gh api repos/atelier-nyaarium/eve-bot --jq '{ merge:.allow_merge_commit, rebase:.allow_rebase_merge, squash:.allow_squash_merge }')
+        MERGE_ALLOWED=$(echo "$ALLOWED_MERGE_TYPES_JSON" | jq -r '.merge')
+        REBASE_ALLOWED=$(echo "$ALLOWED_MERGE_TYPES_JSON" | jq -r '.rebase')
+        SQUASH_ALLOWED=$(echo "$ALLOWED_MERGE_TYPES_JSON" | jq -r '.squash')
+
+        if [ "$MERGE_ALLOWED" == "true" ]; then
+          gh pr merge "$pr_number" --auto -m
+        elif [ "$REBASE_ALLOWED" == "true" ]; then
+          gh pr merge "$pr_number" --auto -r
+        elif [ "$SQUASH_ALLOWED" == "true" ]; then
+          gh pr merge "$pr_number" --auto -s
+        else
+          echo "No merge type allowed????"
+        fi
+      fi
     fi
   else
     echo "❌ Failed to create pull request."
