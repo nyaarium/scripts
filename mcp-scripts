@@ -7,8 +7,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
-import { toolsCursorAgent } from "./manage-agent.js";
+import { toolsCursorAgent } from "./manageAgent.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -21,8 +20,7 @@ const mcpServer = new McpServer({
 	version: "0.1.0",
 });
 
-// Register CursorAgent tools
-toolsCursorAgent.forEach((tool) => {
+function registerTool(tool) {
 	mcpServer.registerTool(
 		tool.name,
 		{
@@ -44,7 +42,13 @@ toolsCursorAgent.forEach((tool) => {
 			}
 		},
 	);
-});
+}
+
+// Register Cursor Agent tools
+toolsCursorAgent.forEach((tool) => registerTool(tool));
+
+/////////////////////
+// Older CLI tools //
 
 mcpServer.registerTool(
 	"treeMd",
@@ -601,6 +605,9 @@ mcpServer.registerTool(
 		});
 	},
 );
+
+// Older CLI tools //
+/////////////////////
 
 async function main() {
 	const transport = new StdioServerTransport();

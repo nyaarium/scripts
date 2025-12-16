@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 // https://cursor.com/docs/background-agent/api/overview
 
 import { spawn } from "node:child_process";
