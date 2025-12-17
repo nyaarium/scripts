@@ -186,10 +186,12 @@ if [ "$create_pr" = "y" ] && [ -n "$pr_title" ]; then
           gh pr merge "$pr_number" --auto -s
         else
           echo "No merge type allowed????"
+          exit 1
         fi
       fi
     fi
   else
     echo "❌ Failed to create pull request."
+    exit 1
   fi
 fi

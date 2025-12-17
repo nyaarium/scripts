@@ -93,6 +93,18 @@ echo "$gh_prs" | while read -r pr; do
     fi
 
     gh pr review --approve "$pr_number"
+
+    # Check if branch is behind base and needs recreation
+    pr_details=$(gh pr view "$pr_number" --json headRefName,baseRefName)
+    head_branch=$(echo "$pr_details" | jq -r '.headRefName')
+    base_branch=$(echo "$pr_details" | jq -r '.baseRefName')
+    
+    # Check how many commits behind the head is from base
+    behind_count=$(gh api "repos/{owner}/{repo}/compare/$base_branch...$head_branch" --jq '.behind_by')
+    
+    if [ "$behind_count" -gt 0 ]; then
+      gh pr comment "$pr_number" --body "@dependabot recreate"
+    fi
   fi
 
   # Update dist/ files
