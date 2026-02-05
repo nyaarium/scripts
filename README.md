@@ -13,11 +13,18 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubc
 
 apt update && apt install -y gh
 
-# As user, run: gh auth login
+# As user, run: gh auth login --with-token
 ```
 
-**ChatGPT** - Create an environment file at `~/.env` with:
+**ChatGPT** - Create an environment file at `.env` with:
 
 ```sh
-OPENAI_KEY=sk-xxxxxxxx
+CURSOR_AGENT_KEY=xxxxxxxx
+OPENROUTER_KEY=xxxxxxxx
+OPENAI_KEY=xxxxxxxx
+TINYPNG_KEY=xxxxxxxx
+
+DISCORD_CLIENT_ID=xxxxxxxx
+DISCORD_SECRET_KEY=xxxxxxxx
+DISCORD_INVITE_URL=xxxxxxxx
 ```

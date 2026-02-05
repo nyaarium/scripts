@@ -7,6 +7,8 @@ class FileSection {
 	constructor(name) {
 		this.name = name;
 		this.children = [];
+		/** @type {number} */
+		this.contentLineCount = 0;
 	}
 
 	toString(prefix = "", isLast = true) {
@@ -22,8 +24,12 @@ class FileSection {
 		}
 
 		const coloredHeader = ansis.dim(headerPrefix) + ansis.green(headerTitle);
+		const countSuffix =
+			this.contentLineCount !== undefined
+				? ` ${ansis.dim("(")}${this.contentLineCount ? ansis.whiteBright(this.contentLineCount) : ansis.redBright(0)}${ansis.dim(")")}`
+				: "";
 
-		let result = `${prefix + connector + coloredHeader}\n`;
+		let result = `${prefix + connector + coloredHeader}${countSuffix}\n`;
 
 		const dimPipe = ansis.dim("│");
 		const childPrefix = prefix + (isLast ? "    " : `${dimPipe}   `);
@@ -96,20 +102,6 @@ class FileNode {
 }
 
 function scanMarkdown(filePath) {
-	const colorizeCount = (count, hasChildren) => {
-		if (!count && hasChildren) return null;
-
-		return count ? ansis.whiteBright(count) : ansis.redBright(count);
-	};
-
-	const wrapCount = (count) => {
-		if (count === null) return "";
-
-		const open = ansis.white(ansis.dim(`(`));
-		const close = ansis.white(ansis.dim(`)`));
-		return ` ${open}${count}${close}`;
-	};
-
 	try {
 		const content = fs.readFileSync(filePath, "utf8");
 		const lines = content.split("\n");
@@ -162,10 +154,8 @@ function scanMarkdown(filePath) {
 			sectionCounts.push({ section: currentSection, count: currentContentCount });
 		}
 
-		// Add the counts after all sections are processed
 		for (const { section, count } of sectionCounts) {
-			const hasChildren = 0 < section.children.length;
-			section.name += wrapCount(colorizeCount(count, hasChildren));
+			section.contentLineCount = count;
 		}
 
 		return { sections, errors: [] };
@@ -186,7 +176,7 @@ function scanFolder(folderPath) {
 			if (item === "node_modules") continue;
 
 			const fullPath = path.join(folderPath, item);
-			
+
 			let stat;
 			try {
 				stat = fs.statSync(fullPath);
@@ -198,14 +188,14 @@ function scanFolder(folderPath) {
 			if (stat.isFile() && (item.endsWith(".md") || item.endsWith(".mdc"))) {
 				const { sections, errors: fileErrors } = scanMarkdown(fullPath);
 				errors.push(...fileErrors);
-				
+
 				const nodeData = new FileNode(item, false);
 				nodeData.sections = sections;
 				files.push(nodeData);
 			} else if (stat.isDirectory()) {
 				const { nodes: subNodes, errors: subErrors } = scanFolder(fullPath);
 				errors.push(...subErrors);
-				
+
 				if (subNodes.length > 0) {
 					const nodeData = new FileNode(item, true);
 					nodeData.children = subNodes;
@@ -233,20 +223,54 @@ function renderTree(items, prefix = "") {
 	return result;
 }
 
+function sectionToStructured(section) {
+	return {
+		name: section.name,
+		count: section.contentLineCount ?? 0,
+		children: section.children.map(sectionToStructured),
+	};
+}
+
+function nodeToStructured(node) {
+	if (node.isDirectory) {
+		return {
+			name: node.name,
+			children: node.children.map(nodeToStructured),
+		};
+	}
+	return {
+		name: node.name,
+		sections: node.sections.map(sectionToStructured),
+	};
+}
+
 const toolDefinitions = {
 	treeMd: {
 		name: "treeMd",
 		title: "tree-md",
-		description: "Render a directory or Markdown file tree using the local tree-md script.",
+		description:
+			"Render a directory or Markdown file tree. Returns structured JSON (tree) by default; use asString only when the user asks to see the tree printed in the reply.",
 		operation: "rendering tree",
 		schema: z.object({
 			paths: z
 				.array(z.string())
 				.nonempty()
 				.describe("One or more absolute or relative paths to scan (directories, .md, or .mdc files)."),
+			asString: z
+				.coerce.boolean()
+				.optional()
+				.default(false)
+				.describe(
+					"Set true only when the user explicitly asks to see the tree in the reply (e.g. 'show me the tree', 'pretty print it'). Leave false when the result is for your own use (reasoning, picking paths, etc.). Default false returns structured JSON in tree.",
+				),
 		}),
-		async handler({ paths }) {
-			// Validate all paths first
+		async handler(args) {
+			const { paths, asString } = toolDefinitions.treeMd.schema.parse(args);
+			for (const targetPath of paths) {
+				if (!path.isAbsolute(targetPath)) {
+					throw new Error(`Relative path not allowed: ${targetPath}. Use an absolute path.`);
+				}
+			}
 			for (const targetPath of paths) {
 				if (!fs.existsSync(targetPath)) {
 					throw new Error(`Path not found: ${targetPath}`);
@@ -255,6 +279,7 @@ const toolDefinitions = {
 
 			const allErrors = [];
 			let outputString = "";
+			const structuredList = [];
 
 			for (const targetPath of paths) {
 				let stat;
@@ -280,22 +305,28 @@ const toolDefinitions = {
 					nodes = result.sections;
 					currentErrors = result.errors;
 				} else {
-					// We can throw here or push to errors. Throwing is probably fine for critical args mismatch,
-					// but let's be consistent and push to errors if we want to be robust.
-					// However, the original code threw an Error, which stops execution. 
-					// Let's keep throwing for invalid top-level arguments, but user asked for visibility.
-					// Let's throw for now as per original contract for invalid input type.
 					throw new Error(`Expected a directory or a Markdown (*.md / *.mdc) file: ${targetPath}`);
 				}
 
 				allErrors.push(...currentErrors);
 				outputString += `\n${rootLine}\n${renderTree(nodes, " ")}`;
+				if (stat.isDirectory()) {
+					structuredList.push({
+						path: targetPath,
+						nodes: nodes.map(nodeToStructured),
+					});
+				} else {
+					structuredList.push({
+						path: targetPath,
+						nodes: [{ name: path.basename(targetPath), sections: nodes.map(sectionToStructured) }],
+					});
+				}
 			}
 
-			return {
-				tree: outputString + "\n",
-				errors: allErrors
-			};
+			if (asString === true) {
+				return { treeString: outputString + "\n", errors: allErrors };
+			}
+			return { tree: structuredList, errors: allErrors };
 		},
 	},
 };

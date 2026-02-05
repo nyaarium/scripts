@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { toolsGitHub } from "./tools/github/index.js";
+import { toolsCursorAgent } from "./tools/cursorAgent/index.js";
+import { toolsTreeMd } from "./tools/toolsTreeMd.js";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+process.env.NYAASCRIPTS_WORKSPACE = scriptDir;
+
+dotenv.config({
+	path: path.join(scriptDir, ".env"),
+	quiet: true,
+});
+
+const mcpServer = new McpServer({
+	name: "scripts-mcp",
+	version: "0.1.0",
+});
+
+function registerTool(tool) {
+	mcpServer.registerTool(
+		tool.name,
+		{
+			title: tool.title,
+			description: tool.description,
+			inputSchema: tool.schema.shape,
+		},
+		async (args) => {
+			try {
+				const result = await tool.handler(args);
+				return {
+					content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+				};
+			} catch (error) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify({ errors: [{ message: error.message }] }, null, 2),
+						},
+					],
+					isError: true,
+				};
+			}
+		},
+	);
+}
+
+// Register Cursor Agent tools
+toolsCursorAgent.forEach((tool) => registerTool(tool));
+
+// Register TreeMd tools
+toolsTreeMd.forEach((tool) => registerTool(tool));
+
+// Register GitHub tools
+toolsGitHub.forEach((tool) => registerTool(tool));
+
+async function main() {
+	const transport = new StdioServerTransport();
+	await mcpServer.connect(transport);
+}
+
+main().catch((error) => {
+	console.error("Server error:", error);
+	process.exit(1);
+});
