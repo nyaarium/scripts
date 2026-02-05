@@ -55,8 +55,6 @@ const toolDefinitions = {
 		operation: `launching agent`,
 		schema: AgentDataSchema,
 		async handler(params) {
-			console.log(JSON.stringify(params, null, 2));
-
 			const { agentData } = params;
 
 			const validatedData = AgentDataSchema.parse(agentData);
@@ -70,8 +68,6 @@ const toolDefinitions = {
 		operation: `getting agent status`,
 		schema: AgentIdSchema,
 		async handler(params) {
-			console.log(JSON.stringify(params, null, 2));
-
 			const { agentId } = params;
 
 			return makeRequest(`/v0/agents/${agentId}`, "GET");
@@ -160,12 +156,15 @@ const toolDefinitions = {
 				}
 			}
 
+			// Capture final status
+			const finalResult = await toolDefinitions.cursorGetAgentStatus.handler({ agentId });
+
 			return {
-				...result,
+				...finalResult,
 				_pollingInfo: {
 					attempts,
 					totalWaitTimeSeconds: Math.round((attempts * pollInterval) / 1000),
-					status: result.status,
+					status: finalResult.status,
 				},
 			};
 		},
@@ -183,107 +182,86 @@ Your confirmation message MUST include the repository name (owner/repo) and PR n
 		operation: `merging pull request`,
 		schema: MergePRInputSchema,
 		async handler({ agentId }) {
-			try {
-				// Get agent status to find PR URL
-				const agentStatus = await toolDefinitions.cursorGetAgentStatus.handler({ agentId });
+			// Get agent status to find PR URL
+			const agentStatus = await toolDefinitions.cursorGetAgentStatus.handler({ agentId });
 
-				// Check if PR URL exists
-				if (!agentStatus.target?.prUrl) {
-					return {
-						success: false,
-						message: "No changes made, nothing to PR.",
-						agentStatus,
-					};
-				}
-
-				// Check GitHub CLI availability
-				const ghStatus = await checkGHCLI();
-				if (!ghStatus.available) {
-					return {
-						success: false,
-						message: `GitHub CLI not found: ${ghStatus.error}`,
-						agentStatus,
-					};
-				}
-				if (!ghStatus.authenticated) {
-					return {
-						success: false,
-						message: `GitHub CLI not authenticated: ${ghStatus.error}`,
-						agentStatus,
-					};
-				}
-
-				// Extract repo info from PR URL
-				const repoInfo = extractRepoFromURL(agentStatus.target.prUrl);
-				const repo = `${repoInfo.owner}/${repoInfo.repo}`;
-
-				// Collect comprehensive PR stats
-				const prStats = await collectPRStats(repo, repoInfo.prNumber);
-
-				// Check PR state
-				if (prStats.merged) {
-					return {
-						success: false,
-						message: "This PR has already been merged.",
-						agentStatus,
-						prStats,
-					};
-				}
-				if (prStats.state !== "open") {
-					return {
-						success: false,
-						message: "This PR has been canceled.",
-						agentStatus,
-						prStats,
-					};
-				}
-
-				// Get repository settings
-				const repoSettings = await checkRepositorySettings(repo);
-
-				// Attempt rebase
-				const rebaseResult = await attemptRebase(repo, repoInfo.prNumber);
-				if (!rebaseResult.success) {
-					if (rebaseResult.needsManualRebase) {
-						return {
-							success: false,
-							message: `Cannot rebase to \`${prStats.baseRef}\` due to conflicts. Recommended course of action is to use \`cursorAddFollowUp\` asking it to "Resolve the conflicts of rebasing \`${prStats.headRef}\` onto \`${prStats.baseRef}\`. Confirm it's in working order, then force push \`${prStats.headRef}\`."`,
-							agentStatus,
-							prStats,
-							repoSettings,
-							rebaseError: rebaseResult.error,
-						};
-					} else {
-						return {
-							success: false,
-							message: `Rebase failed: ${rebaseResult.error}`,
-							agentStatus,
-							prStats,
-							repoSettings,
-						};
-					}
-				}
-
-				// Merge the PR
-				const useAutoMerge = repoSettings.allowAutoMerge;
-				const mergeResult = await mergePR(repo, repoInfo.prNumber, useAutoMerge);
-
-				return {
-					success: true,
-					message: `Successfully ${useAutoMerge ? "auto-merged" : "merged"} PR #${repoInfo.prNumber}`,
-					agentStatus,
-					prStats,
-					repoSettings,
-					rebaseResult,
-					mergeResult,
-				};
-			} catch (error) {
+			// Check if PR URL exists
+			if (!agentStatus.target?.prUrl) {
 				return {
 					success: false,
-					message: `Error merging PR: ${error.message}`,
-					error: error.message,
+					message: "No changes made, nothing to PR.",
+					agentStatus,
 				};
 			}
+
+			// Check GitHub CLI availability
+			const ghStatus = await checkGHCLI();
+			if (!ghStatus.available) {
+				throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
+			}
+			if (!ghStatus.authenticated) {
+				throw new Error(`GitHub CLI not authenticated: ${ghStatus.error}`);
+			}
+
+			// Extract repo info from PR URL
+			const repoInfo = extractRepoFromURL(agentStatus.target.prUrl);
+			const repo = `${repoInfo.owner}/${repoInfo.repo}`;
+
+			// Collect comprehensive PR stats
+			const prStats = await collectPRStats(repo, repoInfo.prNumber);
+
+			// Check PR state
+			if (prStats.merged) {
+				return {
+					success: false,
+					message: "This PR has already been merged.",
+					agentStatus,
+					prStats,
+				};
+			}
+			if (prStats.state !== "open") {
+				return {
+					success: false,
+					message: "This PR has been canceled.",
+					agentStatus,
+					prStats,
+				};
+			}
+
+			// Get repository settings
+			const repoSettings = await checkRepositorySettings(repo);
+
+			// Attempt rebase
+			const rebaseResult = await attemptRebase(repo, repoInfo.prNumber);
+			if (!rebaseResult.success) {
+				if (rebaseResult.needsManualRebase) {
+					// We return a failure result here because it's a specific logical state, not an "error" in tool execution
+					return {
+						success: false,
+						message: `Cannot rebase to \`${prStats.baseRef}\` due to conflicts. Recommended course of action is to use \`cursorAddFollowUp\` asking it to "Resolve the conflicts of rebasing \`${prStats.headRef}\` onto \`${prStats.baseRef}\`. Confirm it's in working order, then force push \`${prStats.headRef}\`."`,
+						agentStatus,
+						prStats,
+						repoSettings,
+						rebaseError: rebaseResult.error,
+					};
+				} else {
+					throw new Error(`Rebase failed: ${rebaseResult.error}`);
+				}
+			}
+
+			// Merge the PR
+			const useAutoMerge = repoSettings.allowAutoMerge;
+			const mergeResult = await mergePR(repo, repoInfo.prNumber, useAutoMerge);
+
+			return {
+				success: true,
+				message: `Successfully ${useAutoMerge ? "auto-merged" : "merged"} PR #${repoInfo.prNumber}`,
+				agentStatus,
+				prStats,
+				repoSettings,
+				rebaseResult,
+				mergeResult,
+			};
 		},
 	},
 };

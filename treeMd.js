@@ -168,16 +168,16 @@ function scanMarkdown(filePath) {
 			section.name += wrapCount(colorizeCount(count, hasChildren));
 		}
 
-		return sections;
+		return { sections, errors: [] };
 	} catch (error) {
-		console.error(`Error reading ${filePath}:`, error.message);
-		return [];
+		return { sections: [], errors: [`Error reading ${filePath}: ${error.message}`] };
 	}
 }
 
 function scanFolder(folderPath) {
 	const directories = [];
 	const files = [];
+	const errors = [];
 
 	try {
 		const items = fs.readdirSync(folderPath);
@@ -186,28 +186,39 @@ function scanFolder(folderPath) {
 			if (item === "node_modules") continue;
 
 			const fullPath = path.join(folderPath, item);
-			const stat = fs.statSync(fullPath);
+			
+			let stat;
+			try {
+				stat = fs.statSync(fullPath);
+			} catch (err) {
+				errors.push(`Error stating ${fullPath}: ${err.message}`);
+				continue;
+			}
 
 			if (stat.isFile() && (item.endsWith(".md") || item.endsWith(".mdc"))) {
-				const sections = scanMarkdown(fullPath);
+				const { sections, errors: fileErrors } = scanMarkdown(fullPath);
+				errors.push(...fileErrors);
+				
 				const nodeData = new FileNode(item, false);
 				nodeData.sections = sections;
 				files.push(nodeData);
 			} else if (stat.isDirectory()) {
-				const subResult = scanFolder(fullPath);
-				if (subResult.length > 0) {
+				const { nodes: subNodes, errors: subErrors } = scanFolder(fullPath);
+				errors.push(...subErrors);
+				
+				if (subNodes.length > 0) {
 					const nodeData = new FileNode(item, true);
-					nodeData.children = subResult;
+					nodeData.children = subNodes;
 					directories.push(nodeData);
 				}
 			}
 		}
 	} catch (error) {
-		console.error(`Error scanning ${folderPath}:`, error.message);
+		errors.push(`Error scanning ${folderPath}: ${error.message}`);
 	}
 
 	// Return directories first, then files
-	return [...directories, ...files];
+	return { nodes: [...directories, ...files], errors };
 }
 
 function renderTree(items, prefix = "") {
@@ -242,28 +253,49 @@ const toolDefinitions = {
 				}
 			}
 
-			let output = "";
+			const allErrors = [];
+			let outputString = "";
 
 			for (const targetPath of paths) {
-				const stat = fs.statSync(targetPath);
+				let stat;
+				try {
+					stat = fs.statSync(targetPath);
+				} catch (err) {
+					allErrors.push(`Error stating root path ${targetPath}: ${err.message}`);
+					continue;
+				}
 
 				let rootLine = "";
 				let nodes = [];
+				let currentErrors = [];
 
 				if (stat.isDirectory()) {
 					rootLine = `📁 ${ansis.yellow(targetPath)}`;
-					nodes = scanFolder(targetPath);
+					const result = scanFolder(targetPath);
+					nodes = result.nodes;
+					currentErrors = result.errors;
 				} else if (stat.isFile() && (targetPath.endsWith(".md") || targetPath.endsWith(".mdc"))) {
 					rootLine = ansis.blueBright(`📄 ${path.basename(targetPath)}`);
-					nodes = scanMarkdown(targetPath);
+					const result = scanMarkdown(targetPath);
+					nodes = result.sections;
+					currentErrors = result.errors;
 				} else {
+					// We can throw here or push to errors. Throwing is probably fine for critical args mismatch,
+					// but let's be consistent and push to errors if we want to be robust.
+					// However, the original code threw an Error, which stops execution. 
+					// Let's keep throwing for invalid top-level arguments, but user asked for visibility.
+					// Let's throw for now as per original contract for invalid input type.
 					throw new Error(`Expected a directory or a Markdown (*.md / *.mdc) file: ${targetPath}`);
 				}
 
-				output += `\n${rootLine}\n${renderTree(nodes, " ")}`;
+				allErrors.push(...currentErrors);
+				outputString += `\n${rootLine}\n${renderTree(nodes, " ")}`;
 			}
 
-			return output + "\n";
+			return {
+				tree: outputString + "\n",
+				errors: allErrors
+			};
 		},
 	},
 };

@@ -38,7 +38,12 @@ function registerTool(tool) {
 				};
 			} catch (error) {
 				return {
-					content: [{ type: "text", text: `Error ${tool.operation}: ${error.message}` }],
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify({ errors: [{ message: error.message }] }, null, 2),
+						},
+					],
 					isError: true,
 				};
 			}
