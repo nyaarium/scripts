@@ -8,6 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { toolsCursorAgent } from "./manageAgent.js";
+import { toolsTreeMd } from "./treeMd.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -48,63 +49,11 @@ function registerTool(tool) {
 // Register Cursor Agent tools
 toolsCursorAgent.forEach((tool) => registerTool(tool));
 
+// Register TreeMd tools
+toolsTreeMd.forEach((tool) => registerTool(tool));
+
 /////////////////////
 // Older CLI tools //
-
-mcpServer.registerTool(
-	"treeMd",
-	{
-		title: "tree-md",
-		description: "Render a directory or Markdown file tree using the local tree-md script.",
-		inputSchema: {
-			paths: z
-				.array(z.string())
-				.nonempty()
-				.describe("One or more absolute or relative paths to scan (directories or .md files)."),
-		},
-	},
-	async ({ paths }) => {
-		return await new Promise((resolve) => {
-			const cmdPath = path.join(scriptDir, "tree-md.js");
-
-			const child = spawn(cmdPath, paths, {
-				stdio: ["ignore", "pipe", "pipe"],
-			});
-			let stdout = "";
-			let stderr = "";
-
-			child.stdout.on("data", (data) => {
-				stdout += data.toString();
-			});
-			child.stderr.on("data", (data) => {
-				stderr += data.toString();
-			});
-			child.on("close", (code) => {
-				if (code === 0) {
-					resolve({
-						content: [{ type: "text", text: stdout || "(no output)" }],
-					});
-				} else {
-					resolve({
-						content: [
-							{
-								type: "text",
-								text: stderr || `tree-md exited with code ${code}`,
-							},
-						],
-						isError: true,
-					});
-				}
-			});
-			child.on("error", (err) => {
-				resolve({
-					content: [{ type: "text", text: `Failed to run tree-md: ${err.message}` }],
-					isError: true,
-				});
-			});
-		});
-	},
-);
 
 mcpServer.registerTool(
 	"githubFetchCommit",

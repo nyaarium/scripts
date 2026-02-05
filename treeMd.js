@@ -1,8 +1,7 @@
-#!/usr/bin/env node
-
 import ansis from "ansis";
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 
 class FileSection {
 	constructor(name) {
@@ -184,10 +183,12 @@ function scanFolder(folderPath) {
 		const items = fs.readdirSync(folderPath);
 
 		for (const item of items) {
+			if (item === "node_modules") continue;
+
 			const fullPath = path.join(folderPath, item);
 			const stat = fs.statSync(fullPath);
 
-			if (stat.isFile() && item.endsWith(".md")) {
+			if (stat.isFile() && (item.endsWith(".md") || item.endsWith(".mdc"))) {
 				const sections = scanMarkdown(fullPath);
 				const nodeData = new FileNode(item, false);
 				nodeData.sections = sections;
@@ -221,45 +222,50 @@ function renderTree(items, prefix = "") {
 	return result;
 }
 
-function main() {
-	const args = process.argv.slice(2);
+const toolDefinitions = {
+	treeMd: {
+		name: "treeMd",
+		title: "tree-md",
+		description: "Render a directory or Markdown file tree using the local tree-md script.",
+		operation: "rendering tree",
+		schema: z.object({
+			paths: z
+				.array(z.string())
+				.nonempty()
+				.describe("One or more absolute or relative paths to scan (directories, .md, or .mdc files)."),
+		}),
+		async handler({ paths }) {
+			// Validate all paths first
+			for (const targetPath of paths) {
+				if (!fs.existsSync(targetPath)) {
+					throw new Error(`Path not found: ${targetPath}`);
+				}
+			}
 
-	if (args.length < 1) {
-		console.error(`Usage: ${process.argv[1]} "<path-1>" ["<path-N>"]`);
-		process.exit(1);
-	}
+			let output = "";
 
-	const targetPaths = args;
+			for (const targetPath of paths) {
+				const stat = fs.statSync(targetPath);
 
-	// Validate all paths first
-	for (const targetPath of targetPaths) {
-		if (!fs.existsSync(targetPath)) {
-			console.error(`Path not found: ${ansis.yellow(targetPath)}`);
-			process.exit(1);
-		}
-	}
+				let rootLine = "";
+				let nodes = [];
 
-	for (const targetPath of targetPaths) {
-		const stat = fs.statSync(targetPath);
+				if (stat.isDirectory()) {
+					rootLine = `📁 ${ansis.yellow(targetPath)}`;
+					nodes = scanFolder(targetPath);
+				} else if (stat.isFile() && (targetPath.endsWith(".md") || targetPath.endsWith(".mdc"))) {
+					rootLine = ansis.blueBright(`📄 ${path.basename(targetPath)}`);
+					nodes = scanMarkdown(targetPath);
+				} else {
+					throw new Error(`Expected a directory or a Markdown (*.md / *.mdc) file: ${targetPath}`);
+				}
 
-		let rootLine = "";
-		let nodes = [];
+				output += `\n${rootLine}\n${renderTree(nodes, " ")}`;
+			}
 
-		if (stat.isDirectory()) {
-			rootLine = `📁 ${ansis.yellow(targetPath)}`;
-			nodes = scanFolder(targetPath);
-		} else if (stat.isFile() && targetPath.endsWith(".md")) {
-			rootLine = ansis.blueBright(`📄 ${path.basename(targetPath)}`);
-			nodes = scanMarkdown(targetPath);
-		} else {
-			console.error(`Expected a directory or a Markdown (*.md) file: ${ansis.yellow(targetPath)}`);
-			process.exit(1);
-		}
+			return output + "\n";
+		},
+	},
+};
 
-		process.stdout.write(`\n${rootLine}\n${renderTree(nodes, " ")}`);
-	}
-
-	process.stdout.write("\n");
-}
-
-main();
+export const toolsTreeMd = Object.values(toolDefinitions);
