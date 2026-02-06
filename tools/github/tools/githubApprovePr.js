@@ -14,7 +14,7 @@ export const githubApprovePr = {
 	name: "githubApprovePr",
 	title: "github-approve-pr",
 	description:
-		"Approve and optionally merge GitHub pull requests. Supports multiple PR numbers. Mutating action.",
+		"Approve and optionally merge GitHub pull requests. Supports multiple PR numbers. If a PR has author \"app/dependabot\" and mergeStateStatus is DIRTY, use github-pr-comment to post \"@dependabot recreate\" first, then approve/merge. Mutating action.",
 	operation: "approving PR(s)",
 	schema: z.object({
 		repo: z
