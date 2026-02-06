@@ -7,7 +7,7 @@ export const cursorGetAgentStatus = {
 	description: "Get the current status and results of a Cursor background agent.",
 	operation: "getting agent status",
 	schema: AgentIdSchema,
-	async handler(params) {
+	async handler(cwd, params) {
 		const { agentId } = AgentIdSchema.parse(params);
 		return makeRequest(`/v0/agents/${agentId}`, "GET");
 	},

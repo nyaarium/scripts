@@ -7,7 +7,7 @@ export const cursorListModels = {
 	description: "List available models for Cursor background agents.",
 	operation: "listing models",
 	schema: EmptySchema,
-	async handler() {
+	async handler(cwd) {
 		return makeRequest("/v0/models", "GET");
 	},
 };

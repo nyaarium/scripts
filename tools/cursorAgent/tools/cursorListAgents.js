@@ -7,7 +7,7 @@ export const cursorListAgents = {
 	description: "List all background agents for the authenticated user.",
 	operation: "listing agents",
 	schema: EmptySchema,
-	async handler() {
+	async handler(cwd) {
 		return makeRequest("/v0/agents", "GET");
 	},
 };

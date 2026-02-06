@@ -1,11 +1,12 @@
 import { spawn } from "node:child_process";
-import { getWorkspaceRoot } from "../../github/lib/getWorkspaceRoot.js";
 
-const spawnOpts = () => ({ stdio: ["ignore", "pipe", "pipe"], cwd: getWorkspaceRoot() });
+function spawnOpts(cwd) {
+	return { stdio: ["ignore", "pipe", "pipe"], cwd };
+}
 
-export function collectPRStats(repo, prNumber) {
+export function collectPRStats(cwd, repo, prNumber) {
 	return new Promise((resolve, reject) => {
-		const child = spawn("gh", ["api", `repos/${repo}/pulls/${prNumber}`], spawnOpts());
+		const child = spawn("gh", ["api", `repos/${repo}/pulls/${prNumber}`], spawnOpts(cwd));
 		let stdout = "";
 		let stderr = "";
 		child.stdout.on("data", (d) => { stdout += d.toString(); });
@@ -37,9 +38,9 @@ export function collectPRStats(repo, prNumber) {
 	});
 }
 
-export function checkRepositorySettings(repo) {
+export function checkRepositorySettings(cwd, repo) {
 	return new Promise((resolve, reject) => {
-		const child = spawn("gh", ["api", `repos/${repo}`], spawnOpts());
+		const child = spawn("gh", ["api", `repos/${repo}`], spawnOpts(cwd));
 		let stdout = "";
 		let stderr = "";
 		child.stdout.on("data", (d) => { stdout += d.toString(); });
@@ -64,9 +65,9 @@ export function checkRepositorySettings(repo) {
 	});
 }
 
-export function attemptRebase(repo, prNumber) {
+export function attemptRebase(cwd, repo, prNumber) {
 	return new Promise((resolve, reject) => {
-		const child = spawn("gh", ["api", `repos/${repo}/pulls/${prNumber}/update-branch`, "--method", "PUT"], spawnOpts());
+		const child = spawn("gh", ["api", `repos/${repo}/pulls/${prNumber}/update-branch`, "--method", "PUT"], spawnOpts(cwd));
 		let stderr = "";
 		child.stderr.on("data", (d) => { stderr += d.toString(); });
 		child.on("close", (code) => {
@@ -85,12 +86,12 @@ export function attemptRebase(repo, prNumber) {
 	});
 }
 
-export function mergePR(repo, prNumber, useAutoMerge = false) {
+export function mergePR(cwd, repo, prNumber, useAutoMerge = false) {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = ["pr", "merge", prNumber, "--merge"];
 		if (useAutoMerge) cmdArgs.splice(2, 0, "--auto");
 		cmdArgs.splice(2, 0, "--repo", repo);
-		const child = spawn("gh", cmdArgs, spawnOpts());
+		const child = spawn("gh", cmdArgs, spawnOpts(cwd));
 		let stdout = "";
 		let stderr = "";
 		child.stdout.on("data", (d) => { stdout += d.toString(); });

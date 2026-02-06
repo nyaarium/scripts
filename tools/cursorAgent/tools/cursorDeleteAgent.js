@@ -7,7 +7,7 @@ export const cursorDeleteAgent = {
 	description: "Delete a Cursor background agent. This action is permanent.",
 	operation: "deleting agent",
 	schema: AgentIdSchema,
-	async handler(params) {
+	async handler(cwd, params) {
 		const { agentId } = AgentIdSchema.parse(params);
 		return makeRequest(`/v0/agents/${agentId}`, "DELETE");
 	},

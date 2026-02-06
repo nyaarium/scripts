@@ -19,21 +19,21 @@ You MUST verbally ask the user for explicit confirmation before calling this too
 Your confirmation message MUST include the repository name (owner/repo) and PR number.`.trim(),
 	operation: "merging pull request",
 	schema: MergePRInputSchema,
-	async handler(params) {
+	async handler(cwd, params) {
 		const { agentId } = MergePRInputSchema.parse(params);
-		const agentStatus = await cursorGetAgentStatus.handler({ agentId });
+		const agentStatus = await cursorGetAgentStatus.handler(cwd, { agentId });
 
 		if (!agentStatus.target?.prUrl) {
 			return { success: false, message: "No changes made, nothing to PR.", agentStatus };
 		}
 
-		const ghStatus = await checkGHCLI();
+		const ghStatus = await checkGHCLI(cwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
 		if (!ghStatus.authenticated) throw new Error(`GitHub CLI not authenticated: ${ghStatus.error}`);
 
 		const repoInfo = extractRepoFromURL(agentStatus.target.prUrl);
 		const repo = `${repoInfo.owner}/${repoInfo.repo}`;
-		const prStats = await collectPRStats(repo, repoInfo.prNumber);
+		const prStats = await collectPRStats(cwd, repo, repoInfo.prNumber);
 
 		if (prStats.merged) {
 			return { success: false, message: "This PR has already been merged.", agentStatus, prStats };
@@ -42,8 +42,8 @@ Your confirmation message MUST include the repository name (owner/repo) and PR n
 			return { success: false, message: "This PR has been canceled.", agentStatus, prStats };
 		}
 
-		const repoSettings = await checkRepositorySettings(repo);
-		const rebaseResult = await attemptRebase(repo, repoInfo.prNumber);
+		const repoSettings = await checkRepositorySettings(cwd, repo);
+		const rebaseResult = await attemptRebase(cwd, repo, repoInfo.prNumber);
 
 		if (!rebaseResult.success) {
 			if (rebaseResult.needsManualRebase) {
@@ -60,7 +60,7 @@ Your confirmation message MUST include the repository name (owner/repo) and PR n
 		}
 
 		const useAutoMerge = repoSettings.allowAutoMerge;
-		const mergeResult = await mergePR(repo, repoInfo.prNumber, useAutoMerge);
+		const mergeResult = await mergePR(cwd, repo, repoInfo.prNumber, useAutoMerge);
 
 		return {
 			success: true,

@@ -1,20 +1,24 @@
 import { spawn } from "node:child_process";
-import { getWorkspaceRoot } from "./getWorkspaceRoot.js";
 
 /**
  * Check if GitHub CLI is available and authenticated.
+ * @param {string} cwd - Working directory for gh.
  * @returns {Promise<{available: boolean, authenticated: boolean, error?: string}>}
  */
-export async function checkGHCLI() {
+export async function checkGHCLI(cwd) {
 	return new Promise((resolve) => {
 		const child = spawn("gh", ["auth", "status"], {
 			stdio: ["ignore", "pipe", "pipe"],
-			cwd: getWorkspaceRoot(),
+			cwd,
 		});
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (d) => { stdout += d.toString(); });
-		child.stderr.on("data", (d) => { stderr += d.toString(); });
+		child.stdout.on("data", (d) => {
+			stdout += d.toString();
+		});
+		child.stderr.on("data", (d) => {
+			stderr += d.toString();
+		});
 		child.on("close", (code) => {
 			if (code === 0) {
 				resolve({ available: true, authenticated: true });

@@ -3,7 +3,6 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { checkGHCLI } from "../lib/checkGHCLI.js";
-import { getWorkspaceRoot } from "../lib/getWorkspaceRoot.js";
 import { OutputInfoSchema } from "../lib/schemas.js";
 
 const InputIssueAuthorSchema = z.object({
@@ -85,7 +84,7 @@ function transformIssue(issue) {
 	};
 }
 
-async function fetchSingleIssue(repo, issueId) {
+async function fetchSingleIssue(cwd, repo, issueId) {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
 			"issue", "view", issueId,
@@ -95,7 +94,7 @@ async function fetchSingleIssue(repo, issueId) {
 
 		const child = spawn("gh", cmdArgs, {
 			stdio: ["ignore", "pipe", "pipe"],
-			cwd: getWorkspaceRoot(),
+			cwd,
 		});
 		let stdout = "";
 		let stderr = "";
@@ -119,7 +118,7 @@ async function fetchSingleIssue(repo, issueId) {
 	});
 }
 
-async function fetchIssueList(repo, state, limit) {
+async function fetchIssueList(cwd, repo, state, limit) {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
 			"issue", "list", "--state", state, "--limit", String(limit),
@@ -129,7 +128,7 @@ async function fetchIssueList(repo, state, limit) {
 
 		const child = spawn("gh", cmdArgs, {
 			stdio: ["ignore", "pipe", "pipe"],
-			cwd: getWorkspaceRoot(),
+			cwd,
 		});
 		let stdout = "";
 		let stderr = "";
@@ -184,17 +183,17 @@ export const githubFetchIssue = {
 				"Optional path to write JSON output. If provided, returns path info instead of full data.",
 			),
 	}),
-	async handler({ repo, issueId, state = "all", limit = 20, outputPath }) {
-		const ghStatus = await checkGHCLI();
+	async handler(cwd, { repo, issueId, state = "all", limit = 20, outputPath }) {
+		const ghStatus = await checkGHCLI(cwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
 		if (!ghStatus.authenticated) throw new Error(`GitHub CLI not authenticated: ${ghStatus.error}`);
 
 		let data;
 		if (issueId) {
-			data = await fetchSingleIssue(repo, issueId);
+			data = await fetchSingleIssue(cwd, repo, issueId);
 			data = OutputIssueSchema.parse(data);
 		} else {
-			data = await fetchIssueList(repo, state, limit);
+			data = await fetchIssueList(cwd, repo, state, limit);
 			data = z.array(OutputIssueSchema).parse(data);
 		}
 

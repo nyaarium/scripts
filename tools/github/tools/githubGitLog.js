@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
-import { getWorkspaceRoot } from "../lib/getWorkspaceRoot.js";
 const OutputLogCommitSchema = z.object({
 	hash: z.string(),
 	shortHash: z.string(),
@@ -22,7 +21,7 @@ const OutputLogInfoSchema = z.object({
 	commits: z.number(),
 });
 
-function runGitLog(count, range) {
+function runGitLog(cwd, count, range) {
 	return new Promise((resolve, reject) => {
 		const env = { ...process.env, PAGER: "cat" };
 		const formatString = "%H|%h|%an|%ae|%ad|%D|%B{{{EOL}}}";
@@ -33,7 +32,7 @@ function runGitLog(count, range) {
 		const child = spawn("git", cmdArgs, {
 			stdio: ["ignore", "pipe", "pipe"],
 			env,
-			cwd: getWorkspaceRoot(),
+			cwd,
 		});
 		let stdout = "";
 		let stderr = "";
@@ -98,11 +97,11 @@ export const githubGitLog = {
 				"Optional path to write JSON output. If provided, returns path info instead of full data.",
 			),
 	}),
-	async handler({ count, range, outputPath }) {
+	async handler(cwd, { count, range, outputPath }) {
 		if (count !== undefined && range !== undefined) throw new Error("Cannot specify both count and range");
 		if (count === undefined && range === undefined) throw new Error("Either count or range is required");
 
-		const rawLogData = await runGitLog(count, range);
+		const rawLogData = await runGitLog(cwd, count, range);
 		const commits = parseCommitData(rawLogData);
 		let data = OutputLogDataSchema.parse(commits);
 

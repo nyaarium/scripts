@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
-import { getWorkspaceRoot } from "./getWorkspaceRoot.js";
 
 export const InputAuthorSchema = z.object({
 	login: z.string(),
@@ -70,14 +69,14 @@ export function normalizeCommitMessage(headline, body) {
 	return isDependabot ? headline.trim() : message;
 }
 
-export function fetchCommitViaGh(repo, commitHash) {
+export function fetchCommitViaGh(cwd, repo, commitHash) {
 	return new Promise((resolve, reject) => {
 		const apiArgs = repo
 			? ["api", `repos/${repo}/commits/${commitHash}`]
 			: ["api", "repos/:owner/:repo/commits/" + commitHash];
 		const child = spawn("gh", apiArgs, {
 			stdio: ["ignore", "pipe", "pipe"],
-			cwd: getWorkspaceRoot(),
+			cwd,
 		});
 		let stdout = "";
 		let stderr = "";

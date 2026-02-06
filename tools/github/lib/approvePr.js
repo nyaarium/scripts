@@ -5,9 +5,9 @@ function api(repo, path) {
 	return ["api", p];
 }
 
-export async function getRepoSettings(repo) {
+export async function getRepoSettings(cwd, repo) {
 	const path = "repos/:owner/:repo";
-	const stdout = await runGh(api(repo, path));
+	const stdout = await runGh(cwd, api(repo, path));
 	const data = JSON.parse(stdout);
 	return {
 		allowAutoMerge: data.allow_auto_merge === true,
@@ -20,9 +20,9 @@ export async function getRepoSettings(repo) {
 	};
 }
 
-export async function getPRStatus(repo, prNumber) {
+export async function getPRStatus(cwd, repo, prNumber) {
 	const path = `repos/:owner/:repo/pulls/${prNumber}`;
-	const stdout = await runGh(api(repo, path));
+	const stdout = await runGh(cwd, api(repo, path));
 	const data = JSON.parse(stdout);
 	return {
 		mergeable: data.mergeable,
@@ -33,12 +33,12 @@ export async function getPRStatus(repo, prNumber) {
 	};
 }
 
-export async function getCIStatus(repo, prNumber) {
-	const prStatus = await getPRStatus(repo, prNumber);
+export async function getCIStatus(cwd, repo, prNumber) {
+	const prStatus = await getPRStatus(cwd, repo, prNumber);
 	const sha = prStatus.headSha;
 	if (!sha) throw new Error("No head SHA for PR");
 	const path = `repos/:owner/:repo/commits/${sha}/check-runs`;
-	const stdout = await runGh(api(repo, path));
+	const stdout = await runGh(cwd, api(repo, path));
 	const checkData = JSON.parse(stdout);
 	const checkRuns = checkData.check_runs || [];
 
@@ -88,38 +88,38 @@ export async function getCIStatus(repo, prNumber) {
 	return status;
 }
 
-export async function getCurrentUser() {
-	const stdout = await runGh(["api", "user"]);
+export async function getCurrentUser(cwd) {
+	const stdout = await runGh(cwd, ["api", "user"]);
 	return JSON.parse(stdout);
 }
 
-export async function getExistingApproval(repo, prNumber) {
+export async function getExistingApproval(cwd, repo, prNumber) {
 	const path = `repos/:owner/:repo/pulls/${prNumber}/reviews`;
-	const stdout = await runGh(api(repo, path));
+	const stdout = await runGh(cwd, api(repo, path));
 	const reviews = JSON.parse(stdout);
-	const currentUser = await getCurrentUser();
+	const currentUser = await getCurrentUser(cwd);
 	return reviews.some(
 		(r) => r.user?.login === currentUser?.login && r.state === "APPROVED",
 	);
 }
 
-export async function approvePR(repo, prNumber) {
+export async function approvePR(cwd, repo, prNumber) {
 	const args = ["pr", "review", prNumber, "--approve"];
 	if (repo) args.splice(2, 0, "--repo", repo);
-	await runGh(args);
+	await runGh(cwd, args);
 	return { success: true, prNumber, output: "Approved" };
 }
 
-export async function enableAutoMerge(mode, repo, prNumber) {
+export async function enableAutoMerge(cwd, mode, repo, prNumber) {
 	const args = ["pr", "merge", prNumber, "--auto", "--merge", `-${mode}`];
 	if (repo) args.splice(2, 0, "--repo", repo);
-	const output = await runGh(args);
+	const output = await runGh(cwd, args);
 	return { success: true, prNumber, output };
 }
 
-export async function manualMerge(repo, prNumber) {
+export async function manualMerge(cwd, repo, prNumber) {
 	const args = ["pr", "merge", prNumber, "--merge"];
 	if (repo) args.splice(2, 0, "--repo", repo);
-	const output = await runGh(args);
+	const output = await runGh(cwd, args);
 	return { success: true, prNumber, output };
 }

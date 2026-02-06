@@ -8,7 +8,7 @@ export const cursorAddFollowUp = {
 		"Add a follow-up instruction to an EXISTING Cursor background agent. Use this to continue work with an agent that's already running or finished.",
 	operation: "adding follow-up",
 	schema: AddFollowUpInputSchema,
-	async handler({ agentId, prompt }) {
+	async handler(cwd, { agentId, prompt }) {
 		const validatedData = FollowUpDataSchema.parse({ prompt });
 		return makeRequest(`/v0/agents/${agentId}/followup`, "POST", validatedData);
 	},

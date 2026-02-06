@@ -3,7 +3,6 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { checkGHCLI } from "../lib/checkGHCLI.js";
-import { getWorkspaceRoot } from "../lib/getWorkspaceRoot.js";
 import {
 	InputCommitSchema,
 	OutputCommitSchema,
@@ -31,8 +30,8 @@ export const githubFetchCommit = {
 				"Optional path to write JSON output (relative or absolute). If provided, returns path info instead of full data.",
 			),
 	}),
-	async handler({ repo, commitHash, outputPath }) {
-		const ghStatus = await checkGHCLI();
+	async handler(cwd, { repo, commitHash, outputPath }) {
+		const ghStatus = await checkGHCLI(cwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
 		if (!ghStatus.authenticated) throw new Error(`GitHub CLI not authenticated: ${ghStatus.error}`);
 
@@ -42,7 +41,7 @@ export const githubFetchCommit = {
 				: ["api", "repos/:owner/:repo/commits/" + commitHash];
 			const child = spawn("gh", apiArgs, {
 				stdio: ["ignore", "pipe", "pipe"],
-				cwd: getWorkspaceRoot(),
+				cwd,
 			});
 			let stdout = "";
 			let stderr = "";

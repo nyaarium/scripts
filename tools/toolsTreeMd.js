@@ -264,7 +264,7 @@ const toolDefinitions = {
 					"Set true only when the user explicitly asks to see the tree in the reply (e.g. 'show me the tree', 'pretty print it'). Leave false when the result is for your own use (reasoning, picking paths, etc.). Default false returns structured JSON in tree.",
 				),
 		}),
-		async handler(args) {
+		async handler(cwd, args) {
 			const { paths, asString } = toolDefinitions.treeMd.schema.parse(args);
 			for (const targetPath of paths) {
 				if (!path.isAbsolute(targetPath)) {

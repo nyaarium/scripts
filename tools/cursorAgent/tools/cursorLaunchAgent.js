@@ -7,7 +7,7 @@ export const cursorLaunchAgent = {
 	description: "Launch a NEW Cursor background agent to work on your repository. Use this for starting fresh work.",
 	operation: "launching agent",
 	schema: AgentDataSchema,
-	async handler(params) {
+	async handler(cwd, params) {
 		const validatedData = AgentDataSchema.parse(params);
 		return makeRequest("/v0/agents", "POST", validatedData);
 	},

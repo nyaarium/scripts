@@ -33,8 +33,8 @@ export const githubApprovePr = {
 			.default(false)
 			.describe("Whether to merge the PR after approval (auto-merge if enabled, manual merge otherwise)."),
 	}),
-	async handler({ repo, prNumbers, merge: shouldMerge = false }) {
-		const ghStatus = await checkGHCLI();
+	async handler(cwd, { repo, prNumbers, merge: shouldMerge = false }) {
+		const ghStatus = await checkGHCLI(cwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
 		if (!ghStatus.authenticated) throw new Error(`GitHub CLI not authenticated: ${ghStatus.error}`);
 
@@ -43,7 +43,7 @@ export const githubApprovePr = {
 		let repoSettings = null;
 		if (shouldMerge) {
 			try {
-				repoSettings = await getRepoSettings(repo);
+				repoSettings = await getRepoSettings(cwd, repo);
 			} catch {
 				// proceed without
 			}
@@ -54,7 +54,7 @@ export const githubApprovePr = {
 				let alreadyApproved = false;
 				let authWarning = null;
 				try {
-					alreadyApproved = await getExistingApproval(repo, prNumber);
+					alreadyApproved = await getExistingApproval(cwd, repo, prNumber);
 				} catch (e) {
 					if (e.message?.includes("authenticated") || e.message?.includes("NOT_AUTHENTICATED")) {
 						authWarning = "GitHub CLI not authenticated - please run 'gh auth login'";
@@ -63,14 +63,14 @@ export const githubApprovePr = {
 
 				let result = alreadyApproved
 					? { success: true, prNumber, output: "Already approved", skipped: true }
-					: await approvePR(repo, prNumber);
+					: await approvePR(cwd, repo, prNumber);
 				if (authWarning) result.authWarning = authWarning;
 				results.push(result);
 
 				if (shouldMerge) {
 					try {
-						const ciStatus = await getCIStatus(repo, prNumber);
-						const prStatus = await getPRStatus(repo, prNumber);
+						const ciStatus = await getCIStatus(cwd, repo, prNumber);
+						const prStatus = await getPRStatus(cwd, repo, prNumber);
 
 						let mergeStrategy = null;
 						let mergeMessage = "";
@@ -113,16 +113,16 @@ export const githubApprovePr = {
 						if (canProceed && mergeStrategy) {
 							if (mergeStrategy === "auto-merge") {
 								if (repoSettings?.allowMergeCommit) {
-									await enableAutoMerge("m", repo, prNumber);
+									await enableAutoMerge(cwd, "m", repo, prNumber);
 								} else if (repoSettings?.allowRebaseMerge) {
-									await enableAutoMerge("r", repo, prNumber);
+									await enableAutoMerge(cwd, "r", repo, prNumber);
 								} else if (repoSettings?.allowSquashMerge) {
-									await enableAutoMerge("s", repo, prNumber);
+									await enableAutoMerge(cwd, "s", repo, prNumber);
 								} else {
-									await manualMerge(repo, prNumber);
+									await manualMerge(cwd, repo, prNumber);
 								}
 							} else {
-								await manualMerge(repo, prNumber);
+								await manualMerge(cwd, repo, prNumber);
 							}
 							result.mergeResult = {
 								strategy: mergeStrategy,

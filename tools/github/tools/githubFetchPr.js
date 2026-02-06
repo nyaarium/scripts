@@ -3,7 +3,6 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { checkGHCLI } from "../lib/checkGHCLI.js";
-import { getWorkspaceRoot } from "../lib/getWorkspaceRoot.js";
 import {
 	InputAuthorSchema,
 	InputCommitSchema,
@@ -118,22 +117,29 @@ const OutputPRListSchema = z.object({
 	statusCheckRollup: z.array(OutputPRStatusCheckSchema).nullable().optional(),
 });
 
-async function fetchSinglePr(repo, prId, fetchFiles) {
+async function fetchSinglePr(cwd, repo, prId, fetchFiles) {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
-			"pr", "view", prId,
-			"--json", "state,author,title,body,comments,mergeStateStatus,mergedAt,mergeCommit,commits,statusCheckRollup",
+			"pr",
+			"view",
+			prId,
+			"--json",
+			"state,author,title,body,comments,mergeStateStatus,mergedAt,mergeCommit,commits,statusCheckRollup",
 		];
 		if (repo) cmdArgs.splice(2, 0, "--repo", repo);
 
 		const child = spawn("gh", cmdArgs, {
 			stdio: ["ignore", "pipe", "pipe"],
-			cwd: getWorkspaceRoot(),
+			cwd,
 		});
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (d) => { stdout += d.toString(); });
-		child.stderr.on("data", (d) => { stderr += d.toString(); });
+		child.stdout.on("data", (d) => {
+			stdout += d.toString();
+		});
+		child.stderr.on("data", (d) => {
+			stderr += d.toString();
+		});
 
 		child.on("close", async (code) => {
 			if (code !== 0) {
@@ -146,13 +152,17 @@ async function fetchSinglePr(repo, prId, fetchFiles) {
 
 				const commits = await Promise.all(
 					validated.commits.map(async (c) => {
-						const author = c.authors?.map((a) => a.name ?? a.login).sort().join(", ") ?? "Unknown";
+						const author =
+							c.authors
+								?.map((a) => a.name ?? a.login)
+								.sort()
+								.join(", ") ?? "Unknown";
 						const message = normalizeCommitMessage(c.messageHeadline, c.messageBody);
 						const base = { id: c.oid, date: c.committedDate, author, message };
 
 						if (!fetchFiles) return base;
 						try {
-							const commitDetails = await fetchCommitViaGh(repo, c.oid);
+							const commitDetails = await fetchCommitViaGh(cwd, repo, c.oid);
 							const files = (commitDetails.files ?? []).map((f) => ({
 								filename: f.filename,
 								status: f.status,
@@ -162,7 +172,11 @@ async function fetchSinglePr(repo, prId, fetchFiles) {
 							}));
 							return { ...base, files };
 						} catch {
-							return { ...base, message: message + "\n\n[Error: File details could not be fetched]", files: [] };
+							return {
+								...base,
+								message: message + "\n\n[Error: File details could not be fetched]",
+								files: [],
+							};
 						}
 					}),
 				);
@@ -193,22 +207,32 @@ async function fetchSinglePr(repo, prId, fetchFiles) {
 	});
 }
 
-async function fetchPrList(repo, state, limit) {
+async function fetchPrList(cwd, repo, state, limit) {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
-			"pr", "list", "--state", state, "--limit", String(limit),
-			"--json", "number,title,body,state,author,comments,mergeStateStatus,mergedAt,mergeCommit,commits,statusCheckRollup",
+			"pr",
+			"list",
+			"--state",
+			state,
+			"--limit",
+			String(limit),
+			"--json",
+			"number,title,body,state,author,comments,mergeStateStatus,mergedAt,mergeCommit,commits,statusCheckRollup",
 		];
 		if (repo) cmdArgs.splice(2, 0, "--repo", repo);
 
 		const child = spawn("gh", cmdArgs, {
 			stdio: ["ignore", "pipe", "pipe"],
-			cwd: getWorkspaceRoot(),
+			cwd,
 		});
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (d) => { stdout += d.toString(); });
-		child.stderr.on("data", (d) => { stderr += d.toString(); });
+		child.stdout.on("data", (d) => {
+			stdout += d.toString();
+		});
+		child.stderr.on("data", (d) => {
+			stderr += d.toString();
+		});
 
 		child.on("close", (code) => {
 			if (code !== 0) {
@@ -237,7 +261,11 @@ async function fetchPrList(repo, state, limit) {
 					commits: (pr.commits ?? []).map((c) => ({
 						id: c.oid,
 						date: c.committedDate,
-						author: c.authors?.map((a) => a.name ?? a.login).sort().join(", ") ?? "Unknown",
+						author:
+							c.authors
+								?.map((a) => a.name ?? a.login)
+								.sort()
+								.join(", ") ?? "Unknown",
 						message: normalizeCommitMessage(c.messageHeadline, c.messageBody),
 					})),
 					statusCheckRollup: pr.statusCheckRollup ?? null,
@@ -264,14 +292,20 @@ export const githubFetchPr = {
 			.describe(
 				"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
 			),
-		prId: z.string().optional().describe("The pull request number to fetch. If not provided, fetches a list of PRs."),
+		prId: z
+			.string()
+			.optional()
+			.describe("The pull request number to fetch. If not provided, fetches a list of PRs."),
 		state: z
 			.enum(["open", "closed", "merged", "all"])
 			.optional()
 			.default("open")
 			.describe("Filter by PR state (only when fetching list)."),
 		limit: z
-			.number().int().min(1).max(100)
+			.number()
+			.int()
+			.min(1)
+			.max(100)
 			.optional()
 			.default(20)
 			.describe("Max number of PRs to fetch (only when fetching list)."),
@@ -283,21 +317,19 @@ export const githubFetchPr = {
 		outputPath: z
 			.string()
 			.optional()
-			.describe(
-				"Optional path to write JSON output. If provided, returns path info instead of full data.",
-			),
+			.describe("Optional path to write JSON output. If provided, returns path info instead of full data."),
 	}),
-	async handler({ repo, prId, state = "open", limit = 20, fetchFiles = false, outputPath }) {
-		const ghStatus = await checkGHCLI();
+	async handler(cwd, { repo, prId, state = "open", limit = 20, fetchFiles = false, outputPath }) {
+		const ghStatus = await checkGHCLI(cwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
 		if (!ghStatus.authenticated) throw new Error(`GitHub CLI not authenticated: ${ghStatus.error}`);
 
 		let data;
 		if (prId) {
-			data = await fetchSinglePr(repo, prId, fetchFiles);
+			data = await fetchSinglePr(cwd, repo, prId, fetchFiles);
 			data = OutputPRSchema.parse(data);
 		} else {
-			data = await fetchPrList(repo, state, limit);
+			data = await fetchPrList(cwd, repo, state, limit);
 			data = z.array(OutputPRListSchema).parse(data);
 		}
 

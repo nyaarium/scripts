@@ -7,7 +7,7 @@ export const cursorGetAgentConversation = {
 	description: "Get the conversation history of a Cursor background agent.",
 	operation: "getting conversation",
 	schema: AgentIdSchema,
-	async handler(params) {
+	async handler(cwd, params) {
 		const { agentId } = AgentIdSchema.parse(params);
 		return makeRequest(`/v0/agents/${agentId}/conversation`, "GET");
 	},

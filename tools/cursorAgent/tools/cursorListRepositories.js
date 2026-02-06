@@ -7,7 +7,7 @@ export const cursorListRepositories = {
 	description: "List GitHub repositories (rate limited: 1/min, 30/hour).",
 	operation: "listing repositories",
 	schema: EmptySchema,
-	async handler() {
+	async handler(cwd) {
 		return makeRequest("/v0/repositories", "GET");
 	},
 };
