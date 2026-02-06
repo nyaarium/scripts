@@ -24,12 +24,14 @@ const InputIssueSchema = z.object({
 	stateReason: z.string().nullable().optional(),
 	author: InputIssueAuthorSchema,
 	assignees: z.array(InputIssueAuthorSchema),
-	labels: z.array(z.object({
-		id: z.string().optional(),
-		name: z.string(),
-		description: z.string().nullable().optional(),
-		color: z.string().optional(),
-	})),
+	labels: z.array(
+		z.object({
+			id: z.string().optional(),
+			name: z.string(),
+			description: z.string().nullable().optional(),
+			color: z.string().optional(),
+		}),
+	),
 	comments: z.array(InputIssueCommentSchema),
 	createdAt: z.string(),
 	updatedAt: z.string(),
@@ -87,8 +89,11 @@ function transformIssue(issue) {
 async function fetchSingleIssue(cwd, repo, issueId) {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
-			"issue", "view", issueId,
-			"--json", "number,title,body,state,stateReason,author,assignees,labels,comments,createdAt,updatedAt,closedAt",
+			"issue",
+			"view",
+			issueId,
+			"--json",
+			"number,title,body,state,stateReason,author,assignees,labels,comments,createdAt,updatedAt,closedAt",
 		];
 		if (repo) cmdArgs.splice(2, 0, "--repo", repo);
 
@@ -98,8 +103,12 @@ async function fetchSingleIssue(cwd, repo, issueId) {
 		});
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (d) => { stdout += d.toString(); });
-		child.stderr.on("data", (d) => { stderr += d.toString(); });
+		child.stdout.on("data", (d) => {
+			stdout += d.toString();
+		});
+		child.stderr.on("data", (d) => {
+			stderr += d.toString();
+		});
 
 		child.on("close", (code) => {
 			if (code !== 0) {
@@ -121,8 +130,14 @@ async function fetchSingleIssue(cwd, repo, issueId) {
 async function fetchIssueList(cwd, repo, state, limit) {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
-			"issue", "list", "--state", state, "--limit", String(limit),
-			"--json", "number,title,body,state,stateReason,author,assignees,labels,comments,createdAt,updatedAt,closedAt,isPinned",
+			"issue",
+			"list",
+			"--state",
+			state,
+			"--limit",
+			String(limit),
+			"--json",
+			"number,title,body,state,stateReason,author,assignees,labels,comments,createdAt,updatedAt,closedAt,isPinned",
 		];
 		if (repo) cmdArgs.splice(2, 0, "--repo", repo);
 
@@ -132,8 +147,12 @@ async function fetchIssueList(cwd, repo, state, limit) {
 		});
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (d) => { stdout += d.toString(); });
-		child.stderr.on("data", (d) => { stderr += d.toString(); });
+		child.stdout.on("data", (d) => {
+			stdout += d.toString();
+		});
+		child.stderr.on("data", (d) => {
+			stderr += d.toString();
+		});
 
 		child.on("close", (code) => {
 			if (code !== 0) {
@@ -162,26 +181,28 @@ export const githubFetchIssue = {
 		repo: z
 			.string()
 			.optional()
-			.describe(
-				"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
-			),
-		issueId: z.string().optional().describe("The issue number to fetch. If not provided, fetches a list of issues."),
+			.describe("When provided, must be full OWNER/REPO. Leave out unless targeting another repo."),
+		issueId: z
+			.string()
+			.optional()
+			.describe("The issue number to fetch. If not provided, fetches a list of issues."),
 		state: z
 			.enum(["open", "closed", "all"])
 			.optional()
 			.default("all")
 			.describe("Filter by issue state (only when fetching list)."),
 		limit: z
-			.number().int().min(1).max(100)
+			.number()
+			.int()
+			.min(1)
+			.max(100)
 			.optional()
 			.default(20)
 			.describe("Maximum number of issues to fetch (only when fetching list)."),
 		outputPath: z
 			.string()
 			.optional()
-			.describe(
-				"Optional path to write JSON output. If provided, returns path info instead of full data.",
-			),
+			.describe("Optional path to write JSON output. If provided, returns path info instead of full data."),
 	}),
 	async handler(cwd, { repo, issueId, state = "all", limit = 20, outputPath }) {
 		const ghStatus = await checkGHCLI(cwd);

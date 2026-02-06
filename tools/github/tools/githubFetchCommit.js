@@ -3,12 +3,7 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { checkGHCLI } from "../lib/checkGHCLI.js";
-import {
-	InputCommitSchema,
-	OutputCommitSchema,
-	OutputInfoSchema,
-	normalizeCommitMessage,
-} from "../lib/schemas.js";
+import { InputCommitSchema, OutputCommitSchema, OutputInfoSchema, normalizeCommitMessage } from "../lib/schemas.js";
 
 export const githubFetchCommit = {
 	name: "githubFetchCommit",
@@ -19,9 +14,7 @@ export const githubFetchCommit = {
 		repo: z
 			.string()
 			.optional()
-			.describe(
-				"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
-			),
+			.describe("When provided, must be full OWNER/REPO. Leave out unless targeting another repo."),
 		commitHash: z.string().describe("The commit hash to fetch (full or short)."),
 		outputPath: z
 			.string()
@@ -45,8 +38,12 @@ export const githubFetchCommit = {
 			});
 			let stdout = "";
 			let stderr = "";
-			child.stdout.on("data", (d) => { stdout += d.toString(); });
-			child.stderr.on("data", (d) => { stderr += d.toString(); });
+			child.stdout.on("data", (d) => {
+				stdout += d.toString();
+			});
+			child.stderr.on("data", (d) => {
+				stderr += d.toString();
+			});
 
 			child.on("close", (code) => {
 				if (code !== 0) {

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { checkGHCLI } from "../lib/checkGHCLI.js";
 import {
 	approvePR,
 	enableAutoMerge,
@@ -9,24 +8,20 @@ import {
 	getRepoSettings,
 	manualMerge,
 } from "../lib/approvePr.js";
+import { checkGHCLI } from "../lib/checkGHCLI.js";
 
 export const githubApprovePr = {
 	name: "githubApprovePr",
 	title: "github-approve-pr",
 	description:
-		"Approve and optionally merge GitHub pull requests. Supports multiple PR numbers. If a PR has author \"app/dependabot\" and mergeStateStatus is DIRTY, use github-pr-comment to post \"@dependabot recreate\" first, then approve/merge. Mutating action.",
+		'Approve and optionally merge GitHub pull requests. Supports multiple PR numbers. If a PR has author "app/dependabot" and mergeStateStatus is DIRTY, use github-pr-comment to post "@dependabot recreate" first, then approve/merge. Mutating action.',
 	operation: "approving PR(s)",
 	schema: z.object({
 		repo: z
 			.string()
 			.optional()
-			.describe(
-				"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
-			),
-		prNumbers: z
-			.array(z.string())
-			.min(1)
-			.describe("Array of PR numbers to approve (e.g. ['123', '456'])."),
+			.describe("When provided, must be full OWNER/REPO. Leave out unless targeting another repo."),
+		prNumbers: z.array(z.string()).min(1).describe("Array of PR numbers to approve (e.g. ['123', '456'])."),
 		merge: z
 			.boolean()
 			.optional()

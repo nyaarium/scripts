@@ -189,9 +189,7 @@ export const githubFetchPr = {
 		repo: z
 			.string()
 			.optional()
-			.describe(
-				"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
-			),
+			.describe("When provided, must be full OWNER/REPO. Leave out unless targeting another repo."),
 		prId: z.string().describe("The pull request number to fetch."),
 		fetchFiles: z
 			.boolean()

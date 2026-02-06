@@ -112,22 +112,9 @@ export const githubListPr = {
 		repo: z
 			.string()
 			.optional()
-			.describe(
-				"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
-			),
-		state: z
-			.enum(["open", "closed", "merged", "all"])
-			.optional()
-			.default("open")
-			.describe("Filter by PR state."),
-		limit: z
-			.number()
-			.int()
-			.min(1)
-			.max(100)
-			.optional()
-			.default(20)
-			.describe("Max number of PRs to return."),
+			.describe("When provided, must be full OWNER/REPO. Leave out unless targeting another repo."),
+		state: z.enum(["open", "closed", "merged", "all"]).optional().default("open").describe("Filter by PR state."),
+		limit: z.number().int().min(1).max(100).optional().default(20).describe("Max number of PRs to return."),
 		outputPath: z
 			.string()
 			.optional()

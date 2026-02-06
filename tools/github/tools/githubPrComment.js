@@ -6,17 +6,15 @@ export const githubPrComment = {
 	name: "githubPrComment",
 	title: "github-pr-comment",
 	description:
-		"Post a comment on a GitHub pull request. Use e.g. for Dependabot PRs with mergeStateStatus DIRTY: post \"@dependabot recreate\" to trigger a rebase. Mutating action.",
+		'Post a comment on a GitHub pull request. Use e.g. for Dependabot PRs with mergeStateStatus DIRTY: post "@dependabot recreate" to trigger a rebase. Mutating action.',
 	operation: "commenting on PR",
 	schema: z.object({
 		repo: z
 			.string()
 			.optional()
-			.describe(
-				"Repository in owner/repo format (ex: microsoft/vscode). If not provided, uses current repository.",
-			),
+			.describe("When provided, must be full OWNER/REPO. Leave out unless targeting another repo."),
 		prId: z.string().describe("The pull request number to comment on."),
-		body: z.string().min(1).describe("The comment body text (e.g. \"@dependabot recreate\")."),
+		body: z.string().min(1).describe('The comment body text (e.g. "@dependabot recreate").'),
 	}),
 	async handler(cwd, { repo, prId, body }) {
 		const ghStatus = await checkGHCLI(cwd);
