@@ -3,13 +3,17 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import dotenv from "dotenv";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 import { toolsCursorAgent } from "./tools/cursorAgent/index.js";
 import { toolsGitHub } from "./tools/github/index.js";
 import { toolsTreeMd } from "./tools/toolsTreeMd.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+
+process.chdir(scriptDir);
 
 dotenv.config({
 	path: path.join(scriptDir, ".env"),
@@ -17,7 +21,7 @@ dotenv.config({
 });
 
 const mcpServer = new McpServer({
-	name: "scripts-mcp",
+	name: "nyaascripts",
 	version: "0.1.0",
 });
 
@@ -62,7 +66,90 @@ toolsTreeMd.forEach((tool) => registerTool(tool));
 // Register GitHub tools
 toolsGitHub.forEach((tool) => registerTool(tool));
 
+// Register project-specific tools (dynamic schema loading)
+async function loadProjectTools() {
+	const projectName = process.env.PROJECT_NAME;
+	const port = process.env.PORT;
+
+	if (!projectName || !port) return;
+
+	const schemaPath = `/workspace/${projectName}/.claude/mcp-schema.js`;
+
+	if (!fs.existsSync(schemaPath)) {
+		console.error(`[nyaascripts] PROJECT_NAME and PORT are set, but schema not found: ${schemaPath}`);
+		return;
+	}
+
+	let schema;
+	try {
+		schema = await import(schemaPath);
+	} catch (error) {
+		console.error(`[nyaascripts] Failed to load MCP schema from ${schemaPath}: ${error.message}`);
+		return;
+	}
+
+	const schemaFn = schema.default;
+	if (typeof schemaFn !== "function") {
+		console.error(`[nyaascripts] MCP schema must default export a function. Got: ${typeof schemaFn}`);
+		return;
+	}
+
+	const tools = schemaFn(z);
+	if (!Array.isArray(tools)) {
+		console.error(`[nyaascripts] MCP schema function must return an array. Got: ${typeof tools}`);
+		return;
+	}
+
+	const baseUrl = `http://localhost:${port}`;
+
+	for (const tool of tools) {
+		mcpServer.registerTool(
+			tool.name,
+			{
+				title: tool.title,
+				description: tool.description,
+				inputSchema: tool.schema.shape,
+			},
+			async (args) => {
+				try {
+					const endpoint = tool.endpoint ?? `/api/debug/${tool.name}`;
+					const url = `${baseUrl}${endpoint}`;
+
+					const response = await fetch(url, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(args),
+					});
+
+					if (!response.ok) {
+						const text = await response.text();
+						throw new Error(`HTTP ${response.status}: ${text}`);
+					}
+
+					const result = await response.json();
+					return {
+						content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+					};
+				} catch (error) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: JSON.stringify({ errors: [{ message: error.message }] }, null, 2),
+							},
+						],
+						isError: true,
+					};
+				}
+			},
+		);
+	}
+
+	console.error(`[nyaascripts] Loaded ${tools.length} project tool(s) from ${projectName}`);
+}
+
 async function main() {
+	await loadProjectTools();
 	const transport = new StdioServerTransport();
 	await mcpServer.connect(transport);
 }
