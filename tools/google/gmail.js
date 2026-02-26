@@ -124,8 +124,8 @@ export const gmailFetchMessages = {
 		ids: z
 			.array(z.string())
 			.min(1)
-			.max(50)
-			.describe("Array of Gmail message ids from gmail-search."),
+			.max(51)
+			.describe("Array of Gmail message ids from gmail-search (max 50)."),
 		bodyFormat: z
 			.enum(["plain", "html"])
 			.optional()
