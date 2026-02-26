@@ -16,7 +16,7 @@ apt update && apt install -y gh
 # As user, run: gh auth login --with-token
 ```
 
-**ChatGPT** - Create an environment file at `.env` with:
+Create an environment file at `.env` with:
 
 ```sh
 CURSOR_AGENT_KEY=xxxxxxxx
@@ -27,4 +27,8 @@ TINYPNG_KEY=xxxxxxxx
 DISCORD_CLIENT_ID=xxxxxxxx
 DISCORD_SECRET_KEY=xxxxxxxx
 DISCORD_INVITE_URL=xxxxxxxx
+
+# https://console.cloud.google.com/auth/clients?authuser=1&project=nyaascripts&supportedpurview=project,folder
+GOOGLE_CLIENT_ID=xxxxxxxx
+GOOGLE_CLIENT_SECRET=xxxxxxxx
 ```

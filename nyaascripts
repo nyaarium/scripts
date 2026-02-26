@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { toolsCursorAgent } from "./tools/cursorAgent/index.js";
 import { toolsGitHub } from "./tools/github/index.js";
+import { toolsGoogle } from "./tools/google/index.js";
 import { toolsTreeMd } from "./tools/toolsTreeMd.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -65,6 +66,9 @@ toolsTreeMd.forEach((tool) => registerTool(tool));
 
 // Register GitHub tools
 toolsGitHub.forEach((tool) => registerTool(tool));
+
+// Register Google/Gmail tools
+toolsGoogle.forEach((tool) => registerTool(tool));
 
 // Register project-specific tools (dynamic schema loading)
 async function loadProjectTools() {
