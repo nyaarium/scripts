@@ -20,34 +20,34 @@ function decodeBody(part) {
 	}
 }
 
-function findBodyInPart(part) {
+function findBodyInPart(part, preferHtml = false) {
 	if (part?.body?.data) return decodeBody(part);
 	if (part?.parts?.length) {
 		const textPart = part.parts.find((p) => p.mimeType === "text/plain");
-		if (textPart) return findBodyInPart(textPart);
 		const htmlPart = part.parts.find((p) => p.mimeType === "text/html");
-		if (htmlPart) return findBodyInPart(htmlPart);
-		return findBodyInPart(part.parts[0]) ?? null;
+		const first = preferHtml ? htmlPart ?? textPart : textPart ?? htmlPart;
+		if (first) return findBodyInPart(first, preferHtml);
+		return findBodyInPart(part.parts[0], preferHtml) ?? null;
 	}
 	return null;
 }
 
-function extractBody(payload) {
+function extractBody(payload, preferHtml = false) {
 	if (payload?.body?.data) return decodeBody(payload);
 	if (payload?.parts?.length) {
 		const textPart = payload.parts.find((p) => p.mimeType === "text/plain");
-		if (textPart) return findBodyInPart(textPart);
 		const htmlPart = payload.parts.find((p) => p.mimeType === "text/html");
-		if (htmlPart) return findBodyInPart(htmlPart);
+		const first = preferHtml ? htmlPart ?? textPart : textPart ?? htmlPart;
+		if (first) return findBodyInPart(first, preferHtml);
 		for (const part of payload.parts) {
-			const body = findBodyInPart(part);
+			const body = findBodyInPart(part, preferHtml);
 			if (body) return body;
 		}
 	}
 	return null;
 }
 
-function formatMessage(msg) {
+function formatMessage(msg, preferHtml = false) {
 	const payload = msg.payload ?? {};
 	return {
 		id: msg.id,
@@ -59,7 +59,7 @@ function formatMessage(msg) {
 		from: getHeader(payload, "From"),
 		to: getHeader(payload, "To"),
 		date: getHeader(payload, "Date"),
-		body: extractBody(payload),
+		body: extractBody(payload, preferHtml),
 	};
 }
 
@@ -126,20 +126,73 @@ export const gmailFetchMessages = {
 			.min(1)
 			.max(50)
 			.describe("Array of Gmail message ids from gmail-search."),
+		bodyFormat: z
+			.enum(["plain", "html"])
+			.optional()
+			.default("plain")
+			.describe("Body format: plain (default) or html."),
 	}),
-	async handler(cwd, { ids }) {
-		const { gmail } = await getGmailClient();
+	async handler(cwd, { ids, bodyFormat = "plain" }) {
+		const { auth } = await getGmailClient();
+		const { token } = await auth.getAccessToken();
+		if (!token) throw new Error("Failed to get access token");
 
-		const messages = await Promise.all(
-			ids.map(async (id) => {
-				const res = await gmail.users.messages.get({
-					userId: "me",
-					id,
-					format: "full",
-				});
-				return formatMessage(res.data);
-			}),
+		const BATCH_URL = "https://gmail.googleapis.com/batch/gmail/v1";
+		const boundary = "batch_" + Math.random().toString(36).slice(2);
+		const pathPrefix = "/gmail/v1/users/me/messages/";
+
+		const parts = ids.map(
+			(id) =>
+				`--${boundary}\r\nContent-Type: application/http\r\n\r\n` +
+				`GET ${pathPrefix}${id}?format=full HTTP/1.1\r\n\r\n`,
 		);
+		const body = parts.join("") + `--${boundary}--`;
+
+		const res = await fetch(BATCH_URL, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": `multipart/mixed; boundary=${boundary}`,
+			},
+			body,
+		});
+
+		if (!res.ok) {
+			const text = await res.text();
+			throw new Error(`Gmail batch request failed: ${res.status} ${text}`);
+		}
+
+		const contentType = res.headers.get("Content-Type") ?? "";
+		const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^;\s]+))/);
+		const resBoundary = (boundaryMatch?.[1] ?? boundaryMatch?.[2] ?? boundary).trim();
+
+		const raw = await res.text();
+		const escaped = resBoundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const chunks = raw.split(new RegExp(`\\r?\\n--${escaped}(?:--)?\\r?\\n`));
+
+		const messages = [];
+		const dbl = (s) => {
+			const i = s.indexOf("\r\n\r\n");
+			return i >= 0 ? i + 4 : (s.indexOf("\n\n") >= 0 ? s.indexOf("\n\n") + 2 : -1);
+		};
+		for (const chunk of chunks) {
+			const inner = chunk.startsWith("--") ? chunk.replace(/^--[^\r\n]+\r?\n/, "") : chunk;
+			const i1 = dbl(inner);
+			if (i1 < 0) continue;
+			const innerHttp = inner.slice(i1);
+			const statusMatch = innerHttp.match(/HTTP\/[\d.]+\s+(\d+)/);
+			if (statusMatch && statusMatch[1] !== "200") continue;
+			const i2 = dbl(innerHttp);
+			if (i2 < 0) continue;
+			const jsonStr = innerHttp.slice(i2).trim();
+			if (!jsonStr) continue;
+			try {
+				const msg = JSON.parse(jsonStr);
+				messages.push(formatMessage(msg, bodyFormat === "html"));
+			} catch {
+				// skip parse errors (e.g. error response body)
+			}
+		}
 
 		return { data: messages };
 	},
