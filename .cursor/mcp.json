@@ -1,0 +1,21 @@
+{
+	"mcpServers": {
+		"agent-team-bridge": {
+			"command": "node",
+			"args": ["/agent-team-bridge/mcp/server.js"],
+			"env": {
+				"TEAM_NAME": "nyaascripts",
+				"BRIDGE_ROUTER_URL": "http://agent-team-bridge:5678",
+				"AGENT_TYPE": "claude",
+				"MODEL_SIMPLE": "auto",
+				"MODEL_STANDARD": "sonnet",
+				"MODEL_COMPLEX": "opus"
+			}
+		},
+		"nyaascripts": {
+			"command": "./nyaascripts",
+			"args": [],
+			"env": {}
+		}
+	}
+}
