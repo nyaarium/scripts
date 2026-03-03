@@ -1,0 +1,1 @@
+FROM ghcr.io/nyaarium/agent-default:latest

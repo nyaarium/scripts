@@ -1,0 +1,8 @@
+{
+	"build": {
+		"dockerfile": "Dockerfile.agent"
+	},
+	"terminals": [],
+	"user": "agent",
+	"install": "yarn install || true"
+}

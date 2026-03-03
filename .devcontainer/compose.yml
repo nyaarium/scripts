@@ -1,0 +1,19 @@
+services:
+  dev:
+    tty: true
+    hostname: devcontainer
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile.devcontainer
+      args:
+        PROJECT_NAME: nyaascripts
+    volumes:
+      # Workspace
+      - ..:/workspace/nyaascripts:cached
+      # Home
+      - ../volumes/home:/home/vscode:cached
+    networks:
+      - agent-team-bridge-network
+networks:
+  agent-team-bridge-network:
+    name: agent-team-bridge

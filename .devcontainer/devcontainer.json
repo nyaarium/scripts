@@ -1,0 +1,87 @@
+{
+	"name": "nyaascripts",
+	"dockerComposeFile": "compose.yml",
+	"service": "dev",
+	"remoteUser": "vscode",
+	"updateRemoteUserUID": true,
+	"workspaceFolder": "/workspace/nyaascripts",
+	"initializeCommand": ".devcontainer/init-home.sh",
+	"postCreateCommand": "sudo /var/post-create.sh",
+	"postStartCommand": "/var/post-start.sh",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"antfu.browse-lite",
+				"anysphere.pyright",
+				"Anthropic.claude-code",
+				"BlueGlassBlock.better-json5",
+				"christian-kohler.npm-intellisense",
+				"codeandstuff.package-json-upgrade",
+				"bierner.markdown-mermaid",
+				"dbaeumer.vscode-eslint",
+				"esbenp.prettier-vscode",
+				"github.vscode-github-actions",
+				"github.vscode-pull-request-github",
+				"mechatroner.rainbow-csv",
+				"mhutchie.git-graph",
+				"mikestead.dotenv",
+				"redhat.vscode-yaml",
+				"usernamehw.errorlens",
+				"vitest.explorer"
+			],
+			"settings": {
+				"[html]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[javascript]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[javascriptreact]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[json]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[jsonc]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[typescript]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[typescriptreact]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"autoimport.doubleQuotes": true,
+				"autoimport.filesToScan": "**/*.{js,jsx,ts,tsx}",
+				"cursor.cmdk.useThemedDiffBackground": true,
+				"cursor.terminal.usePreviewBox": true,
+				"diffEditor.codeLens": true,
+				"diffEditor.experimental.showMoves": true,
+				"diffEditor.ignoreTrimWhitespace": true,
+				"editor.codeActionsOnSave": { "source.sortImports": "explicit" },
+				"editor.defaultFormatter": "esbenp.prettier-vscode",
+				"editor.formatOnSave": true,
+				"editor.insertSpaces": false,
+				"extensions.ignoreRecommendations": true,
+				"files.eol": "\n",
+				"files.insertFinalNewline": true,
+				"files.watcherExclude": {
+					"**/dist/**": true,
+					"**/.next/**": true,
+					"**/node_modules/**": true,
+					"**/node_modules/*/**": false,
+					"**/volumes/**": true
+				},
+				"git.branchProtectionPrompt": "alwaysCommit",
+				"javascript.preferences.importModuleSpecifier": "non-relative",
+				"javascript.updateImportsOnFileMove.enabled": "always",
+				"js/ts.implicitProjectConfig.target": "ESNext",
+				"prettier.quoteProps": "consistent",
+				"prettier.useEditorConfig": false,
+				"scm.diffDecorationsIgnoreTrimWhitespace": "true",
+				"typescript.preferences.importModuleSpecifier": "non-relative",
+				"typescript.updateImportsOnFileMove.enabled": "always"
+			}
+		}
+	}
+}
