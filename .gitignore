@@ -1,5 +1,10 @@
+# Build
+/nyaascripts
+
 # Node
 node_modules/
+bun.lock
+package-lock.json
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -8,8 +13,21 @@ node_modules/
 !.yarn/sdks
 !.yarn/versions
 
+# Development
+_test/
+/.swc/
+/.vscode-server/
+/.vscode/
+/coverage/
+/volumes/
+/.env*
+debug*.log
+
+# Secrets
 .tokens/
-py-envs/
-package-lock.json
-*.env
 *.key
+
+#### OS
+Thumbs.db
+.DS_Store
+._.DS_Store
