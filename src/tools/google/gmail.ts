@@ -1,6 +1,6 @@
+import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
 import { getGmailClient } from "./lib/auth.ts";
-import type { gmail_v1 } from "@googleapis/gmail";
 
 function getHeader(payload: gmail_v1.Schema$MessagePart | undefined, name: string): string | null {
 	const header = payload?.headers?.find((h) => h.name?.toLowerCase() === name.toLowerCase());
@@ -26,7 +26,7 @@ function findBodyInPart(part: gmail_v1.Schema$MessagePart, preferHtml = false): 
 	if (part?.parts?.length) {
 		const textPart = part.parts.find((p) => p.mimeType === "text/plain");
 		const htmlPart = part.parts.find((p) => p.mimeType === "text/html");
-		const first = preferHtml ? htmlPart ?? textPart : textPart ?? htmlPart;
+		const first = preferHtml ? (htmlPart ?? textPart) : (textPart ?? htmlPart);
 		if (first) return findBodyInPart(first, preferHtml);
 		return findBodyInPart(part.parts[0], preferHtml) ?? null;
 	}
@@ -39,7 +39,7 @@ function extractBody(payload: gmail_v1.Schema$MessagePart | undefined, preferHtm
 	if (payload?.parts?.length) {
 		const textPart = payload.parts.find((p) => p.mimeType === "text/plain");
 		const htmlPart = payload.parts.find((p) => p.mimeType === "text/html");
-		const first = preferHtml ? htmlPart ?? textPart : textPart ?? htmlPart;
+		const first = preferHtml ? (htmlPart ?? textPart) : (textPart ?? htmlPart);
 		if (first) return findBodyInPart(first, preferHtml);
 		for (const part of payload.parts) {
 			const body = findBodyInPart(part, preferHtml);
@@ -87,11 +87,7 @@ export const gmailSearch = {
 			.optional()
 			.default(20)
 			.describe("Max number of message ids to return."),
-		includeSpamTrash: z
-			.boolean()
-			.optional()
-			.default(false)
-			.describe("Include messages from spam and trash."),
+		includeSpamTrash: z.boolean().optional().default(false).describe("Include messages from spam and trash."),
 	}),
 	async handler(_cwd: string, args: Record<string, unknown>) {
 		const { query, maxResults, includeSpamTrash } = gmailSearch.schema.parse(args);
@@ -124,11 +120,7 @@ export const gmailFetchMessages = {
 		"Fetch full email content by message ids. Pass the id values from gmail-search results. Returns subject, from, to, date, body, snippet for each message.",
 	operation: "fetching Gmail messages",
 	schema: z.object({
-		ids: z
-			.array(z.string())
-			.min(1)
-			.max(51)
-			.describe("Array of Gmail message ids from gmail-search (max 50)."),
+		ids: z.array(z.string()).min(1).max(51).describe("Array of Gmail message ids from gmail-search (max 50)."),
 		bodyFormat: z
 			.enum(["plain", "html"])
 			.optional()
@@ -155,7 +147,7 @@ export const gmailFetchMessages = {
 		const res = await fetch(BATCH_URL, {
 			method: "POST",
 			headers: {
-				Authorization: `Bearer ${token}`,
+				"Authorization": `Bearer ${token}`,
 				"Content-Type": `multipart/mixed; boundary=${boundary}`,
 			},
 			body,
@@ -168,16 +160,20 @@ export const gmailFetchMessages = {
 
 		const contentType = res.headers.get("Content-Type") ?? "";
 		const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^;\s]+))/);
+
+		// The response boundary may differ from the one we sent; always parse it from the response Content-Type.
 		const resBoundary = (boundaryMatch?.[1] ?? boundaryMatch?.[2] ?? boundary).trim();
 
 		const raw = await res.text();
-		const escaped = resBoundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const escaped = resBoundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // escape for use in RegExp
 		const chunks = raw.split(new RegExp(`\\r?\\n--${escaped}(?:--)?\\r?\\n`));
 
 		const messages: ReturnType<typeof formatMessage>[] = [];
+
+		// Finds the end of HTTP headers by locating the double-newline separator. Returns the index of the first body byte.
 		const dbl = (s: string): number => {
 			const i = s.indexOf("\r\n\r\n");
-			return i >= 0 ? i + 4 : (s.indexOf("\n\n") >= 0 ? s.indexOf("\n\n") + 2 : -1);
+			return i >= 0 ? i + 4 : s.indexOf("\n\n") >= 0 ? s.indexOf("\n\n") + 2 : -1;
 		};
 		for (const chunk of chunks) {
 			const inner = chunk.startsWith("--") ? chunk.replace(/^--[^\r\n]+\r?\n/, "") : chunk;

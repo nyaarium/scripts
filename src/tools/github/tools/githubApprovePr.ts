@@ -95,6 +95,7 @@ export const githubApprovePr = {
 									mergeMessage = `CI still running - manual merge blocked. Waiting for: ${ciStatus.stillRunning.map((c) => c.name).join(", ")}`;
 								}
 							} else if (ciStatus.overall === "failure") {
+								// Some checks failed but required checks passed - auto-merge can still proceed and GitHub will enforce the required ones.
 								if (ciStatus.required.length > 0 && repoSettings?.allowAutoMerge) {
 									mergeStrategy = "auto-merge";
 									mergeMessage = `CI has failures but required checks exist - auto-merge will proceed. Errors: ${ciStatus.errors.map((c) => c.name).join(", ")}`;

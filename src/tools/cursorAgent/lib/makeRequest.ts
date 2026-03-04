@@ -1,5 +1,6 @@
 import https from "node:https";
 
+/** Makes an authenticated request to api.cursor.com. Rejects on non-2xx or parse failure. */
 export function makeRequest(endpoint: string, method: string, data: unknown = null): Promise<unknown> {
 	const apiKey = process.env.CURSOR_AGENT_KEY;
 	if (!apiKey) {

@@ -17,7 +17,6 @@ class FileSection {
 	toString(prefix = "", isLast = true): string {
 		const connector = ansis.dim(isLast ? "└── " : "├── ");
 
-		// Split the header into hash part and title
 		const spaceIndex = this.name.indexOf(" ");
 		let headerPrefix = "";
 		let headerTitle = this.name;
@@ -77,7 +76,6 @@ class FileNode {
 		const dimPipe = ansis.dim("│");
 		const childPrefix = prefix + (isLast ? "    " : `${dimPipe}   `);
 
-		// For files, show sections first, then children (sections colored)
 		if (!this.isDirectory) {
 			for (let i = 0; i < this.sections.length; i++) {
 				const isLastSection = i === this.sections.length - 1 && this.children.length === 0;
@@ -85,7 +83,6 @@ class FileNode {
 			}
 		}
 
-		// Show children (for directories, this is subdirectories and files)
 		for (let i = 0; i < this.children.length; i++) {
 			const isLastChild = i === this.children.length - 1;
 			result += this.children[i].toString(childPrefix, isLastChild);
@@ -128,7 +125,6 @@ function scanMarkdown(filePath: string): { sections: FileSection[]; errors: stri
 		for (const line of lines) {
 			const trimmed = line.trim();
 
-			// Check if line is a header (keep the # characters)
 			const headerMatch = trimmed.match(/^(#{2,})\s+(.+)$/);
 			if (headerMatch) {
 				if (currentSection) {
@@ -142,27 +138,22 @@ function scanMarkdown(filePath: string): { sections: FileSection[]; errors: stri
 				currentSection = section;
 				currentContentCount = 0;
 
-				// Pop stack until we find the right parent level
 				while (stack.length > 0 && stack[stack.length - 1].level >= level) {
 					stack.pop();
 				}
 
-				// Add to parent or root
 				if (stack.length === 0) {
 					sections.push(section);
 				} else {
 					stack[stack.length - 1].section.children.push(section);
 				}
 
-				// Push current section to stack
 				stack.push({ level, section });
 			} else if (currentSection && trimmed.length) {
-				// Count non-empty, non-header lines as content
 				currentContentCount++;
 			}
 		}
 
-		// Store the count for the last section
 		if (currentSection) {
 			sectionCounts.push({ section: currentSection, count: currentContentCount });
 		}
@@ -220,7 +211,6 @@ function scanFolder(folderPath: string): { nodes: FileNode[]; errors: string[] }
 		errors.push(`Error scanning ${folderPath}: ${(error as Error).message}`);
 	}
 
-	// Return directories first, then files
 	return { nodes: [...directories, ...files], errors };
 }
 

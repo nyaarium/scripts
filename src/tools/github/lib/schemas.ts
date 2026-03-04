@@ -62,6 +62,7 @@ export const OutputInfoSchema = z.object({
 	outputPathAbs: z.string(),
 });
 
+/** Returns the full message (headline + body) for normal commits. For Dependabot commits, returns the headline only — the body is verbose and not useful. */
 export function normalizeCommitMessage(headline: string, body: string | null | undefined): string {
 	const dependabotPatterns = [/^Bump .+ from .+ to .+$/i, /^Bump .+ group with .+$/i, /from .+\/dependabot\//i];
 	const isDependabot = dependabotPatterns.some((p) => p.test(headline) || (body && p.test(body)));
@@ -71,6 +72,7 @@ export function normalizeCommitMessage(headline: string, body: string | null | u
 
 export type InputCommit = z.infer<typeof InputCommitSchema>;
 
+/** Fetches a commit via `gh api`. When `repo` is undefined, uses `:owner/:repo` inference from the cwd. */
 export function fetchCommitViaGh(cwd: string, repo: string | undefined, commitHash: string): Promise<InputCommit> {
 	return new Promise((resolve, reject) => {
 		const apiArgs = repo

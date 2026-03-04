@@ -38,8 +38,12 @@ export function collectPRStats(cwd: string, repo: string, prNumber: string): Pro
 		const child = spawn("gh", ["api", `repos/${repo}/pulls/${prNumber}`], spawnOpts(cwd));
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
-		child.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+		child.stdout.on("data", (d: Buffer) => {
+			stdout += d.toString();
+		});
+		child.stderr.on("data", (d: Buffer) => {
+			stderr += d.toString();
+		});
 		child.on("close", (code: number | null) => {
 			if (code === 0) {
 				try {
@@ -72,14 +76,19 @@ export function checkRepositorySettings(cwd: string, repo: string): Promise<Repo
 		const child = spawn("gh", ["api", `repos/${repo}`], spawnOpts(cwd));
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
-		child.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+		child.stdout.on("data", (d: Buffer) => {
+			stdout += d.toString();
+		});
+		child.stderr.on("data", (d: Buffer) => {
+			stderr += d.toString();
+		});
 		child.on("close", (code: number | null) => {
 			if (code === 0) {
 				try {
 					const repoData = JSON.parse(stdout);
 					resolve({
 						allowAutoMerge: repoData.allow_auto_merge === true,
+						// Both fields set to "PR_TITLE" is GitHub's indicator that linear history (no merge commits) is enforced.
 						linearHistory:
 							repoData.merge_commit_message === "PR_TITLE" && repoData.merge_commit_title === "PR_TITLE",
 					});
@@ -96,9 +105,15 @@ export function checkRepositorySettings(cwd: string, repo: string): Promise<Repo
 
 export function attemptRebase(cwd: string, repo: string, prNumber: string): Promise<RebaseResult> {
 	return new Promise((resolve, reject) => {
-		const child = spawn("gh", ["api", `repos/${repo}/pulls/${prNumber}/update-branch`, "--method", "PUT"], spawnOpts(cwd));
+		const child = spawn(
+			"gh",
+			["api", `repos/${repo}/pulls/${prNumber}/update-branch`, "--method", "PUT"],
+			spawnOpts(cwd),
+		);
 		let stderr = "";
-		child.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+		child.stderr.on("data", (d: Buffer) => {
+			stderr += d.toString();
+		});
 		child.on("close", (code: number | null) => {
 			if (code === 0) {
 				resolve({ success: true });
@@ -118,13 +133,19 @@ export function attemptRebase(cwd: string, repo: string, prNumber: string): Prom
 export function mergePR(cwd: string, repo: string, prNumber: string, useAutoMerge = false): Promise<MergeResult> {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = ["pr", "merge", prNumber, "--merge"];
+
+		// Insert flags at index 2 (before prNumber) to keep gh's expected argument order.
 		if (useAutoMerge) cmdArgs.splice(2, 0, "--auto");
 		cmdArgs.splice(2, 0, "--repo", repo);
 		const child = spawn("gh", cmdArgs, spawnOpts(cwd));
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
-		child.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+		child.stdout.on("data", (d: Buffer) => {
+			stdout += d.toString();
+		});
+		child.stderr.on("data", (d: Buffer) => {
+			stderr += d.toString();
+		});
 		child.on("close", (code: number | null) => {
 			if (code === 0) resolve({ success: true, output: stdout.trim() });
 			else reject(new Error(`Failed to merge PR: ${stderr.trim()}`));

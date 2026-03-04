@@ -6,10 +6,6 @@ export interface GHCLIStatus {
 	error?: string;
 }
 
-/**
- * Check if GitHub CLI is available and authenticated.
- * @param cwd - Working directory for gh.
- */
 export async function checkGHCLI(cwd: string): Promise<GHCLIStatus> {
 	return new Promise((resolve) => {
 		const child = spawn("gh", ["auth", "status"], {
@@ -17,9 +13,7 @@ export async function checkGHCLI(cwd: string): Promise<GHCLIStatus> {
 			cwd,
 		});
 		let stderr = "";
-		child.stdout.on("data", () => {
-			// stdout not used
-		});
+		child.stdout.on("data", () => {});
 		child.stderr.on("data", (d: Buffer) => {
 			stderr += d.toString();
 		});

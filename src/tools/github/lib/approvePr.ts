@@ -67,6 +67,7 @@ export async function getPRStatus(cwd: string, repo: string | undefined, prNumbe
 	};
 }
 
+/** Fetches check-runs for the PR's head SHA and aggregates them into a CIStatus with overall result, canMerge flag, and categorized check lists. */
 export async function getCIStatus(cwd: string, repo: string | undefined, prNumber: string): Promise<CIStatus> {
 	const prStatus = await getPRStatus(cwd, repo, prNumber);
 	const sha = prStatus.headSha;
@@ -144,6 +145,7 @@ export async function approvePR(cwd: string, repo: string | undefined, prNumber:
 	return { success: true, prNumber, output: "Approved" };
 }
 
+/** Enables auto-merge via `gh pr merge --auto`. `mode` is the merge flag letter: `"m"` (merge), `"r"` (rebase), `"s"` (squash). */
 export async function enableAutoMerge(cwd: string, mode: string, repo: string | undefined, prNumber: string): Promise<{ success: boolean; prNumber: string; output: string }> {
 	const args = ["pr", "merge", prNumber, "--auto", "--merge", `-${mode}`];
 	if (repo) args.splice(2, 0, "--repo", repo);

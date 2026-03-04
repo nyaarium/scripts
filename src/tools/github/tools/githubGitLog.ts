@@ -25,7 +25,10 @@ const OutputLogInfoSchema = z.object({
 function runGitLog(cwd: string, count: number | undefined, range: string | undefined): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const env = { ...process.env, PAGER: "cat" };
+
+		// Pipe-delimited fields: hash, shortHash, author, email, date, refs, body. {{{EOL}}} is a unique commit separator.
 		const formatString = "%H|%h|%an|%ae|%ad|%D|%B{{{EOL}}}";
+
 		const cmdArgs = ["log", `--pretty=format:${formatString}`, "--decorate"];
 		if (count !== undefined) cmdArgs.splice(1, 0, `-n ${count}`);
 		else if (range !== undefined) cmdArgs.push(range);
@@ -37,8 +40,12 @@ function runGitLog(cwd: string, count: number | undefined, range: string | undef
 		});
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
-		child.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+		child.stdout.on("data", (d: Buffer) => {
+			stdout += d.toString();
+		});
+		child.stderr.on("data", (d: Buffer) => {
+			stderr += d.toString();
+		});
 		child.on("close", (code) => {
 			if (code === 0) resolve(stdout.trim());
 			else reject(new Error(`Git log failed ${code}: ${stderr.trim()}`));
@@ -60,10 +67,14 @@ function parseCommitData(rawLogData: string): z.infer<typeof OutputLogCommitSche
 
 		const [hash, shortHash, author, email, date, refsString, ...messageParts] = parts;
 		const refs = refsString?.trim()
-			? refsString.split(", ").map((r) => r.trim()).filter(Boolean)
+			? refsString
+					.split(", ")
+					.map((r) => r.trim())
+					.filter(Boolean)
 			: [];
 		const messageLines = lines.slice(1);
 		const fullMessage = messageLines.join("\n").trim();
+		// messageParts catches the rare case where %B contains a pipe, causing the body to split across extra fields.
 		const finalMessage = fullMessage || (messageParts.length > 0 ? messageParts.join("|").trim() : "");
 
 		commits.push({
@@ -81,16 +92,17 @@ function parseCommitData(rawLogData: string): z.infer<typeof OutputLogCommitSche
 
 const schema = z.object({
 	count: z
-		.number().int().min(1).max(10000)
+		.number()
+		.int()
+		.min(1)
+		.max(10000)
 		.optional()
 		.describe("Number of log entries to fetch (mutually exclusive with range)."),
 	range: z.string().optional().describe("Git range (single hash or hash..hash, mutually exclusive with count)."),
 	outputPath: z
 		.string()
 		.optional()
-		.describe(
-			"Optional path to write JSON output. If provided, returns path info instead of full data.",
-		),
+		.describe("Optional path to write JSON output. If provided, returns path info instead of full data."),
 });
 
 export const githubGitLog = {

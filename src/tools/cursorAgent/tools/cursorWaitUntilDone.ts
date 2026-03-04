@@ -27,6 +27,7 @@ export const cursorWaitUntilDone = {
 			}
 		}
 
+		// Fetch once more after the loop to capture the final state (the loop exits before fetching when status is terminal).
 		const finalResult = await cursorGetAgentStatus.handler(cwd, { agentId }) as { status: string };
 		return {
 			...finalResult,

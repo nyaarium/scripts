@@ -1,9 +1,8 @@
 #!/bin/bash
-
-set -e
-
 # This script runs on the host machine before the dev container is started.
 # It will initialize the home directory's .bashrc file
+
+set -e
 
 WORKSPACE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 
