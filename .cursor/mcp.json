@@ -1,8 +1,8 @@
 {
 	"mcpServers": {
 		"agent-team-bridge": {
-			"command": "node",
-			"args": ["/agent-team-bridge/mcp/server.js"],
+			"command": "/home/vscode/agent-team-bridge/build/agent-team-bridge",
+			"args": [],
 			"env": {
 				"TEAM_NAME": "nyaascripts",
 				"BRIDGE_ROUTER_URL": "http://agent-team-bridge:5678",
@@ -13,7 +13,7 @@
 			}
 		},
 		"nyaascripts": {
-			"command": "/home/vscode/scripts/nyaascripts",
+			"command": "./nyaascripts",
 			"args": [],
 			"env": {}
 		}
