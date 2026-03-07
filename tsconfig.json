@@ -11,5 +11,18 @@
 		"resolveJsonModule": true,
 		"allowImportingTsExtensions": true
 	},
-	"include": ["src", "eslint.config.js"]
+	"include": ["src", "eslint.config.js"],
+	"exclude": [
+		".claude",
+		".cursor",
+		".yarn",
+		"build",
+		"coverage",
+		"node_modules",
+		"volumes",
+		".eslintrc.js",
+		".pnp.cjs",
+		".pnp.loader.mjs",
+		"tsconfig.json"
+	]
 }
