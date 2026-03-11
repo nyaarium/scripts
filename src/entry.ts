@@ -111,7 +111,8 @@ async function loadProjectTools() {
 		return;
 	}
 
-	const baseUrl = `http://localhost:${port}`;
+	const host = process.env.HOST || "localhost";
+	const baseUrl = `http://${host}:${port}`;
 
 	for (const tool of tools as McpTool[]) {
 		mcpServer.registerTool(
