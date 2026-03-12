@@ -45,8 +45,7 @@ export async function getRepoSettings(cwd: string, repo: string | undefined): Pr
 	const data = JSON.parse(stdout);
 	return {
 		allowAutoMerge: data.allow_auto_merge === true,
-		linearHistory:
-			data.merge_commit_message === "PR_TITLE" && data.merge_commit_title === "PR_TITLE",
+		linearHistory: data.merge_commit_message === "PR_TITLE" && data.merge_commit_title === "PR_TITLE",
 		isDraft: data.archived === false && data.disabled === false && data.private === false,
 		allowMergeCommit: data.allow_merge_commit === true,
 		allowRebaseMerge: data.allow_rebase_merge === true,
@@ -133,12 +132,14 @@ export async function getExistingApproval(cwd: string, repo: string | undefined,
 	const stdout = await runGh(cwd, api(repo, path));
 	const reviews = JSON.parse(stdout) as Array<{ user?: { login?: string }; state?: string }>;
 	const currentUser = await getCurrentUser(cwd);
-	return reviews.some(
-		(r) => r.user?.login === (currentUser as { login?: string })?.login && r.state === "APPROVED",
-	);
+	return reviews.some((r) => r.user?.login === (currentUser as { login?: string })?.login && r.state === "APPROVED");
 }
 
-export async function approvePR(cwd: string, repo: string | undefined, prNumber: string): Promise<{ success: boolean; prNumber: string; output: string }> {
+export async function approvePR(
+	cwd: string,
+	repo: string | undefined,
+	prNumber: string,
+): Promise<{ success: boolean; prNumber: string; output: string }> {
 	const args = ["pr", "review", prNumber, "--approve"];
 	if (repo) args.splice(2, 0, "--repo", repo);
 	await runGh(cwd, args);
@@ -146,14 +147,23 @@ export async function approvePR(cwd: string, repo: string | undefined, prNumber:
 }
 
 /** Enables auto-merge via `gh pr merge --auto`. `mode` is the merge flag letter: `"m"` (merge), `"r"` (rebase), `"s"` (squash). */
-export async function enableAutoMerge(cwd: string, mode: string, repo: string | undefined, prNumber: string): Promise<{ success: boolean; prNumber: string; output: string }> {
+export async function enableAutoMerge(
+	cwd: string,
+	mode: string,
+	repo: string | undefined,
+	prNumber: string,
+): Promise<{ success: boolean; prNumber: string; output: string }> {
 	const args = ["pr", "merge", prNumber, "--auto", "--merge", `-${mode}`];
 	if (repo) args.splice(2, 0, "--repo", repo);
 	const output = await runGh(cwd, args);
 	return { success: true, prNumber, output };
 }
 
-export async function manualMerge(cwd: string, repo: string | undefined, prNumber: string): Promise<{ success: boolean; prNumber: string; output: string }> {
+export async function manualMerge(
+	cwd: string,
+	repo: string | undefined,
+	prNumber: string,
+): Promise<{ success: boolean; prNumber: string; output: string }> {
 	const args = ["pr", "merge", prNumber, "--merge"];
 	if (repo) args.splice(2, 0, "--repo", repo);
 	const output = await runGh(cwd, args);

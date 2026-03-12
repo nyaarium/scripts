@@ -1,9 +1,9 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import dotenv from "dotenv";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import dotenv from "dotenv";
 import { z } from "zod";
 import { toolsCursorAgent } from "./tools/cursorAgent/index.ts";
 import { toolsGitHub } from "./tools/github/index.ts";
@@ -66,16 +66,24 @@ function registerTool(tool: McpTool) {
 }
 
 // Register Cursor Agent tools
-toolsCursorAgent.forEach((tool) => registerTool(tool as McpTool));
+toolsCursorAgent.forEach((tool) => {
+	registerTool(tool as McpTool);
+});
 
 // Register TreeMd tools
-toolsTreeMd.forEach((tool) => registerTool(tool as McpTool));
+toolsTreeMd.forEach((tool) => {
+	registerTool(tool as McpTool);
+});
 
 // Register GitHub tools
-toolsGitHub.forEach((tool) => registerTool(tool as McpTool));
+toolsGitHub.forEach((tool) => {
+	registerTool(tool as McpTool);
+});
 
 // Register Google/Gmail tools
-toolsGoogle.forEach((tool) => registerTool(tool as McpTool));
+toolsGoogle.forEach((tool) => {
+	registerTool(tool as McpTool);
+});
 
 // Register project-specific tools (dynamic schema loading)
 async function loadProjectTools() {

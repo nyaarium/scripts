@@ -1,14 +1,9 @@
+import type { z } from "zod";
 import { checkGHCLI } from "../../github/lib/checkGHCLI.ts";
 import { extractRepoFromURL } from "../../github/lib/extractRepoFromURL.ts";
-import { cursorGetAgentStatus } from "./cursorGetAgentStatus.ts";
+import { attemptRebase, checkRepositorySettings, collectPRStats, mergePR } from "../lib/mergeHelpers.ts";
 import { MergePRInputSchema } from "../lib/schemas.ts";
-import {
-	attemptRebase,
-	checkRepositorySettings,
-	collectPRStats,
-	mergePR,
-} from "../lib/mergeHelpers.ts";
-import type { z } from "zod";
+import { cursorGetAgentStatus } from "./cursorGetAgentStatus.ts";
 
 type MergePRInput = z.infer<typeof MergePRInputSchema>;
 
@@ -24,7 +19,7 @@ Your confirmation message MUST include the repository name (owner/repo) and PR n
 	schema: MergePRInputSchema,
 	async handler(cwd: string, params: Record<string, unknown>): Promise<unknown> {
 		const { agentId } = MergePRInputSchema.parse(params) as MergePRInput;
-		const agentStatus = await cursorGetAgentStatus.handler(cwd, { agentId }) as {
+		const agentStatus = (await cursorGetAgentStatus.handler(cwd, { agentId })) as {
 			target?: { prUrl?: string };
 			[key: string]: unknown;
 		};

@@ -1,6 +1,6 @@
-import ansis from "ansis";
 import fs from "node:fs";
 import path from "node:path";
+import ansis from "ansis";
 import { z } from "zod";
 
 class FileSection {
@@ -263,8 +263,8 @@ const toolDefinitions = {
 				.array(z.string())
 				.nonempty()
 				.describe("One or more absolute or relative paths to scan (directories, .md, or .mdc files)."),
-			asString: z
-				.coerce.boolean()
+			asString: z.coerce
+				.boolean()
 				.optional()
 				.default(false)
 				.describe(
@@ -325,13 +325,18 @@ const toolDefinitions = {
 				} else {
 					structuredList.push({
 						path: targetPath,
-						nodes: [{ name: path.basename(targetPath), sections: (nodes as FileSection[]).map(sectionToStructured) }],
+						nodes: [
+							{
+								name: path.basename(targetPath),
+								sections: (nodes as FileSection[]).map(sectionToStructured),
+							},
+						],
 					});
 				}
 			}
 
 			if (asString === true) {
-				return { treeString: outputString + "\n", errors: allErrors };
+				return { treeString: `${outputString}\n`, errors: allErrors };
 			}
 			return { tree: structuredList, errors: allErrors };
 		},

@@ -88,7 +88,11 @@ function transformIssue(issue: InputIssue): z.infer<typeof OutputIssueSchema> {
 	};
 }
 
-async function fetchSingleIssue(cwd: string, repo: string | undefined, issueId: string): Promise<z.infer<typeof OutputIssueSchema>> {
+async function fetchSingleIssue(
+	cwd: string,
+	repo: string | undefined,
+	issueId: string,
+): Promise<z.infer<typeof OutputIssueSchema>> {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
 			"issue",
@@ -129,7 +133,12 @@ async function fetchSingleIssue(cwd: string, repo: string | undefined, issueId: 
 	});
 }
 
-async function fetchIssueList(cwd: string, repo: string | undefined, state: string, limit: number): Promise<z.infer<typeof OutputIssueSchema>[]> {
+async function fetchIssueList(
+	cwd: string,
+	repo: string | undefined,
+	state: string,
+	limit: number,
+): Promise<z.infer<typeof OutputIssueSchema>[]> {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
 			"issue",
@@ -178,10 +187,7 @@ const schema = z.object({
 		.string()
 		.optional()
 		.describe("When provided, must be full OWNER/REPO. Leave out unless targeting another repo."),
-	issueId: z
-		.string()
-		.optional()
-		.describe("The issue number to fetch. If not provided, fetches a list of issues."),
+	issueId: z.string().optional().describe("The issue number to fetch. If not provided, fetches a list of issues."),
 	state: z
 		.enum(["open", "closed", "all"])
 		.optional()

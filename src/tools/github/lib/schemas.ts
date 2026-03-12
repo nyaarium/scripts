@@ -77,7 +77,7 @@ export function fetchCommitViaGh(cwd: string, repo: string | undefined, commitHa
 	return new Promise((resolve, reject) => {
 		const apiArgs = repo
 			? ["api", `repos/${repo}/commits/${commitHash}`]
-			: ["api", "repos/:owner/:repo/commits/" + commitHash];
+			: ["api", `repos/:owner/:repo/commits/${commitHash}`];
 		const child = spawn("gh", apiArgs, {
 			stdio: ["ignore", "pipe", "pipe"],
 			cwd,

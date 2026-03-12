@@ -1,6 +1,6 @@
-import { cursorGetAgentStatus } from "./cursorGetAgentStatus.ts";
-import { AgentIdSchema } from "../lib/schemas.ts";
 import type { z } from "zod";
+import { AgentIdSchema } from "../lib/schemas.ts";
+import { cursorGetAgentStatus } from "./cursorGetAgentStatus.ts";
 
 type AgentIdInput = z.infer<typeof AgentIdSchema>;
 
@@ -20,7 +20,7 @@ export const cursorWaitUntilDone = {
 
 		while ((status === "CREATING" || status === "RUNNING") && attempts < maxAttempts) {
 			attempts++;
-			const result = await cursorGetAgentStatus.handler(cwd, { agentId }) as { status: string };
+			const result = (await cursorGetAgentStatus.handler(cwd, { agentId })) as { status: string };
 			status = result.status;
 			if (status === "CREATING" || status === "RUNNING") {
 				await new Promise((r) => setTimeout(r, pollInterval));
@@ -28,7 +28,7 @@ export const cursorWaitUntilDone = {
 		}
 
 		// Fetch once more after the loop to capture the final state (the loop exits before fetching when status is terminal).
-		const finalResult = await cursorGetAgentStatus.handler(cwd, { agentId }) as { status: string };
+		const finalResult = (await cursorGetAgentStatus.handler(cwd, { agentId })) as { status: string };
 		return {
 			...finalResult,
 			_pollingInfo: {

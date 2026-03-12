@@ -54,7 +54,10 @@ export const githubApprovePr = {
 				try {
 					alreadyApproved = await getExistingApproval(cwd, repo, prNumber);
 				} catch (e) {
-					if ((e as Error).message?.includes("authenticated") || (e as Error).message?.includes("NOT_AUTHENTICATED")) {
+					if (
+						(e as Error).message?.includes("authenticated") ||
+						(e as Error).message?.includes("NOT_AUTHENTICATED")
+					) {
 						authWarning = "GitHub CLI not authenticated - please run 'gh auth login'";
 					}
 				}

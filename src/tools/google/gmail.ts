@@ -134,7 +134,7 @@ export const gmailFetchMessages = {
 		if (!token) throw new Error("Failed to get access token");
 
 		const BATCH_URL = "https://gmail.googleapis.com/batch/gmail/v1";
-		const boundary = "batch_" + Math.random().toString(36).slice(2);
+		const boundary = `batch_${Math.random().toString(36).slice(2)}`;
 		const pathPrefix = "/gmail/v1/users/me/messages/";
 
 		const parts = ids.map(
@@ -142,12 +142,12 @@ export const gmailFetchMessages = {
 				`--${boundary}\r\nContent-Type: application/http\r\n\r\n` +
 				`GET ${pathPrefix}${id}?format=full HTTP/1.1\r\n\r\n`,
 		);
-		const body = parts.join("") + `--${boundary}--`;
+		const body = `${parts.join("")}--${boundary}--`;
 
 		const res = await fetch(BATCH_URL, {
 			method: "POST",
 			headers: {
-				"Authorization": `Bearer ${token}`,
+				Authorization: `Bearer ${token}`,
 				"Content-Type": `multipart/mixed; boundary=${boundary}`,
 			},
 			body,

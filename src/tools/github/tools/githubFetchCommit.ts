@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { checkGHCLI } from "../lib/checkGHCLI.ts";
-import { InputCommitSchema, OutputCommitSchema, OutputInfoSchema, normalizeCommitMessage } from "../lib/schemas.ts";
+import { InputCommitSchema, normalizeCommitMessage, OutputCommitSchema, OutputInfoSchema } from "../lib/schemas.ts";
 
 const schema = z.object({
 	repo: z
@@ -34,7 +34,7 @@ export const githubFetchCommit = {
 		const data = await new Promise((promiseResolve, reject) => {
 			const apiArgs = repo
 				? ["api", `repos/${repo}/commits/${commitHash}`]
-				: ["api", "repos/:owner/:repo/commits/" + commitHash];
+				: ["api", `repos/:owner/:repo/commits/${commitHash}`];
 			const child = spawn("gh", apiArgs, {
 				stdio: ["ignore", "pipe", "pipe"],
 				cwd,

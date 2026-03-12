@@ -1,6 +1,6 @@
+import type { z } from "zod";
 import { makeRequest } from "../lib/makeRequest.ts";
 import { AddFollowUpInputSchema, FollowUpDataSchema } from "../lib/schemas.ts";
-import type { z } from "zod";
 
 type AddFollowUpInput = z.infer<typeof AddFollowUpInputSchema>;
 

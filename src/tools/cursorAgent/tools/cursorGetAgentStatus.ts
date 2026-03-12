@@ -1,6 +1,6 @@
+import type { z } from "zod";
 import { makeRequest } from "../lib/makeRequest.ts";
 import { AgentIdSchema } from "../lib/schemas.ts";
-import type { z } from "zod";
 
 type AgentIdInput = z.infer<typeof AgentIdSchema>;
 

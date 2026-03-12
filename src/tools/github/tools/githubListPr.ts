@@ -50,7 +50,12 @@ const OutputPRListBriefSchema = z.object({
 
 type OutputPRListBrief = z.infer<typeof OutputPRListBriefSchema>;
 
-async function fetchPrListBrief(cwd: string, repo: string | undefined, state: string, limit: number): Promise<OutputPRListBrief[]> {
+async function fetchPrListBrief(
+	cwd: string,
+	repo: string | undefined,
+	state: string,
+	limit: number,
+): Promise<OutputPRListBrief[]> {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
 			"pr",

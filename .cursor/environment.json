@@ -4,5 +4,5 @@
 	},
 	"terminals": [],
 	"user": "agent",
-	"install": "yarn install || true"
+	"install": "bun install || true"
 }

@@ -4,11 +4,11 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { checkGHCLI } from "../lib/checkGHCLI.ts";
 import {
+	fetchCommitViaGh,
 	InputAuthorSchema,
+	normalizeCommitMessage,
 	OutputFileSchema,
 	OutputInfoSchema,
-	fetchCommitViaGh,
-	normalizeCommitMessage,
 } from "../lib/schemas.ts";
 
 const InputMergeCommitSchema = z.object({ oid: z.string() });
@@ -90,7 +90,12 @@ const OutputPRSchema = z.object({
 	statusCheckRollup: z.array(OutputPRStatusCheckSchema).nullable().optional(),
 });
 
-async function fetchSinglePr(cwd: string, repo: string | undefined, prId: string, fetchFiles: boolean): Promise<unknown> {
+async function fetchSinglePr(
+	cwd: string,
+	repo: string | undefined,
+	prId: string,
+	fetchFiles: boolean,
+): Promise<unknown> {
 	return new Promise((resolve, reject) => {
 		const cmdArgs = [
 			"pr",
@@ -147,7 +152,7 @@ async function fetchSinglePr(cwd: string, repo: string | undefined, prId: string
 						} catch {
 							return {
 								...base,
-								message: message + "\n\n[Error: File details could not be fetched]",
+								message: `${message}\n\n[Error: File details could not be fetched]`,
 								files: [],
 							};
 						}

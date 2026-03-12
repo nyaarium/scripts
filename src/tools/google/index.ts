@@ -1,3 +1,3 @@
-import { gmailSearch, gmailFetchMessages } from "./gmail.ts";
+import { gmailFetchMessages, gmailSearch } from "./gmail.ts";
 
 export const toolsGoogle = [gmailSearch, gmailFetchMessages];

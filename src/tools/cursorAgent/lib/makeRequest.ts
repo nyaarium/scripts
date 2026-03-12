@@ -20,14 +20,20 @@ export function makeRequest(endpoint: string, method: string, data: unknown = nu
 
 		const req = https.request(options, (res) => {
 			let body = "";
-			res.on("data", (chunk: Buffer) => { body += chunk; });
+			res.on("data", (chunk: Buffer) => {
+				body += chunk;
+			});
 			res.on("end", () => {
 				try {
 					const responseData = body ? JSON.parse(body) : {};
 					if (res.statusCode !== undefined && res.statusCode >= 200 && res.statusCode < 300) {
 						resolve(responseData);
 					} else {
-						reject(new Error(`Request failed with status code ${res.statusCode}: ${(responseData as { message?: string }).message || body}`));
+						reject(
+							new Error(
+								`Request failed with status code ${res.statusCode}: ${(responseData as { message?: string }).message || body}`,
+							),
+						);
 					}
 				} catch (parseError) {
 					reject(new Error(`Failed to parse response: ${(parseError as Error).message}`));
