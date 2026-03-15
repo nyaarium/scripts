@@ -6,6 +6,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import dotenv from "dotenv";
 import { z } from "zod";
 import { toolsCursorAgent } from "./tools/cursorAgent/index.ts";
+import { toolsDevcontainer } from "./tools/devcontainer/index.ts";
 import { toolsGitHub } from "./tools/github/index.ts";
 import { toolsGoogle } from "./tools/google/index.ts";
 import { toolsTreeMd } from "./tools/toolsTreeMd.ts";
@@ -82,6 +83,11 @@ toolsGitHub.forEach((tool) => {
 
 // Register Google/Gmail tools
 toolsGoogle.forEach((tool) => {
+	registerTool(tool as McpTool);
+});
+
+// Register Devcontainer tools
+toolsDevcontainer.forEach((tool) => {
 	registerTool(tool as McpTool);
 });
 
