@@ -100,6 +100,60 @@ export function ensureContainerUp(projectPath: string): void {
 	}
 }
 
+// Agent CLI model mapping per effort level
+export const AGENT_MODELS: Record<string, Record<string, string>> = {
+	claude: { simple: "haiku", standard: "sonnet", complex: "opus" },
+	cursor: { simple: "auto", standard: "sonnet-4.6-thinking", complex: "opus-4.6-thinking" },
+	copilot: { simple: "claude-haiku-4.5", standard: "claude-sonnet-4.6", complex: "claude-opus-4.6" },
+	codex: { simple: "gpt-5.3-codex", standard: "gpt-5.3-codex", complex: "gpt-5.4" },
+};
+
+export const AGENT_TYPES = Object.keys(AGENT_MODELS) as [string, ...string[]];
+export const EFFORT_LEVELS = ["simple", "standard", "complex"] as [string, ...string[]];
+
+export function resolveModel(agent: string, effort: string): string {
+	const models = AGENT_MODELS[agent];
+	if (!models) throw new Error(`Unknown agent '${agent}'. Valid: ${AGENT_TYPES.join(", ")}`);
+	const model = models[effort];
+	if (!model) throw new Error(`Unknown effort '${effort}'. Valid: ${EFFORT_LEVELS.join(", ")}`);
+	return model;
+}
+
+// Build the shell command for each agent CLI.
+// Returns the command string to run inside the container.
+export function buildAgentCommand(
+	agent: string,
+	model: string,
+	sessionId: string,
+	isFollowUp: boolean,
+	promptFile: string,
+	responseFile: string,
+	stderrFile: string,
+): string {
+	switch (agent) {
+		case "claude": {
+			const sessionFlag = isFollowUp ? "--resume" : "--session-id";
+			return `claude -p --dangerously-skip-permissions --model ${model} ${sessionFlag} ${sessionId} < ${promptFile} > ${responseFile} 2>${stderrFile}`;
+		}
+		case "cursor": {
+			// cursor-agent always resumes (session created on first use)
+			return `cursor-agent -f -p --model ${model} --resume=${sessionId} < ${promptFile} > ${responseFile} 2>${stderrFile}`;
+		}
+		case "copilot": {
+			// copilot takes prompt as arg, not stdin
+			return `copilot -p "$(cat ${promptFile})" --yolo --no-ask-user --model ${model} --resume ${sessionId} -s > ${responseFile} 2>${stderrFile}`;
+		}
+		case "codex": {
+			if (isFollowUp) {
+				return `codex exec resume ${sessionId} -m ${model} --dangerously-bypass-approvals-and-sandbox < ${promptFile} > ${responseFile} 2>${stderrFile}`;
+			}
+			return `codex exec -m ${model} --dangerously-bypass-approvals-and-sandbox < ${promptFile} > ${responseFile} 2>${stderrFile}`;
+		}
+		default:
+			throw new Error(`Unknown agent '${agent}'.`);
+	}
+}
+
 export function execInContainer(
 	projectPath: string,
 	command: string[],

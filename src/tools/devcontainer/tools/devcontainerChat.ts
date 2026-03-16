@@ -1,9 +1,17 @@
 import crypto from "node:crypto";
 import { z } from "zod";
-import { assertWSLHost, ensureContainerUp, execInContainer, resolveProject } from "../lib/helpers.ts";
+import {
+	AGENT_TYPES,
+	assertWSLHost,
+	buildAgentCommand,
+	EFFORT_LEVELS,
+	ensureContainerUp,
+	execInContainer,
+	resolveModel,
+	resolveProject,
+} from "../lib/helpers.ts";
 
 const SAFE_ID = /^[a-f0-9-]+$/i;
-const SAFE_MODEL = /^[a-z0-9.-]+$/i;
 const CHAT_DIR = "/tmp/devcontainer-chat";
 const INITIAL_WAIT_MS = 120_000;
 const POLL_WAIT_MS = 60_000;
@@ -40,19 +48,28 @@ Pass it back along with a new prompt to continue the same conversation.
 Omit to start a fresh conversation.
 `.trim(),
 		),
-	model: z.string().optional().default("sonnet").describe("Model to use (sonnet, opus, haiku)"),
+	agent: z.enum(AGENT_TYPES).describe(
+		`
+Agent CLI to use: claude, cursor, copilot, or codex.
+Try claude first. If it is not installed in the container, use devcontainerExec to run "which claude cursor copilot codex" to see which are available.
+`.trim(),
+	),
+	effort: z
+		.enum(EFFORT_LEVELS)
+		.describe("Effort level: simple, standard, or complex. Controls which model the agent uses."),
 });
 
 export const devcontainerChat = {
 	name: "devcontainerChat",
 	title: "Devcontainer Chat",
 	description: `
-Send a prompt to Claude Code inside a project's devcontainer.
+Send a prompt to an agent CLI inside a project's devcontainer.
 Automatically starts the container if needed.
+Supports claude, cursor, copilot, and codex agents.
 
 Three call patterns:
-1. New chat: provide projectPath + prompt. Returns response, sessionId, and jobId.
-2. Follow-up: provide projectPath + prompt + sessionId (from a previous response). Continues the same conversation.
+1. New chat: provide projectPath + prompt + agent + effort. Returns response, sessionId, and jobId.
+2. Follow-up: provide projectPath + prompt + agent + effort + sessionId (from a previous response). Continues the same conversation.
 3. Poll a running job: provide projectPath + jobId only (no prompt). Checks if the job finished.
 
 The response includes a sessionId. Pass it back with your next prompt to continue the conversation.
@@ -77,8 +94,7 @@ If the job takes longer than 2 minutes, status will be "running" with a jobId. C
 			throw new Error("Provide either prompt (start new job) or jobId (poll existing job).");
 		}
 
-		const model = args.model || "sonnet";
-		if (!SAFE_MODEL.test(model)) throw new Error("Invalid model name.");
+		const model = resolveModel(args.agent, args.effort);
 
 		const jobId = crypto.randomUUID();
 		const sessionId = args.sessionId || crypto.randomUUID();
@@ -92,15 +108,20 @@ If the job takes longer than 2 minutes, status will be "running" with a jobId. C
 		const writeCmd = `mkdir -p ${CHAT_DIR}/${jobId} && cat > ${CHAT_DIR}/${jobId}/prompt.md`;
 		await execInContainer(projectPath, ["bash", "-c", writeCmd], 30_000, args.prompt);
 
-		// 2. Write runner script via heredoc (all interpolated values are pre-validated safe)
-		//    and start it in tmux so the process survives disconnection
-		const sessionFlag = isFollowUp ? "--resume" : "--session-id";
+		// 2. Build the agent-specific command and write runner script
+		const agentCmd = buildAgentCommand(
+			args.agent,
+			model,
+			sessionId,
+			isFollowUp,
+			`${CHAT_DIR}/${jobId}/prompt.md`,
+			`${CHAT_DIR}/${jobId}/response.txt`,
+			`${CHAT_DIR}/${jobId}/stderr.txt`,
+		);
 		const setupCmd = [
 			`cat > ${CHAT_DIR}/${jobId}/run.sh << 'ENDSCRIPT'`,
 			"#!/bin/bash",
-			`claude -p --dangerously-skip-permissions --model ${model} ${sessionFlag} ${sessionId} \\`,
-			`  < ${CHAT_DIR}/${jobId}/prompt.md \\`,
-			`  > ${CHAT_DIR}/${jobId}/response.txt 2>${CHAT_DIR}/${jobId}/stderr.txt`,
+			agentCmd,
 			`echo $? > ${CHAT_DIR}/${jobId}/exit.txt`,
 			`rm -f ${CHAT_DIR}/${jobId}/prompt.md`,
 			"ENDSCRIPT",
