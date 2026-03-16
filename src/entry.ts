@@ -1,12 +1,11 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import dotenv from "dotenv";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { toolsCursorAgent } from "./tools/cursorAgent/index.ts";
-import { toolsDevcontainer } from "./tools/devcontainer/index.ts";
 import { toolsGitHub } from "./tools/github/index.ts";
 import { toolsGoogle } from "./tools/google/index.ts";
 import { toolsTreeMd } from "./tools/toolsTreeMd.ts";
@@ -31,7 +30,7 @@ dotenv.config({
 
 const mcpServer = new McpServer({
 	name: "nyaascripts",
-	version: "1.0.0",
+	version: "1.1.0",
 });
 
 function registerTool(tool: McpTool) {
@@ -83,11 +82,6 @@ toolsGitHub.forEach((tool) => {
 
 // Register Google/Gmail tools
 toolsGoogle.forEach((tool) => {
-	registerTool(tool as McpTool);
-});
-
-// Register Devcontainer tools
-toolsDevcontainer.forEach((tool) => {
 	registerTool(tool as McpTool);
 });
 
