@@ -9,6 +9,25 @@ fi
 set -e
 
 
+# Quick fix: If there are empty object files (common WSL2 corruption), try to auto-fix before doing a full reset.
+if [ -d ".git/objects" ]; then
+	empty_objects=$(find .git/objects/ -type f -empty 2>/dev/null)
+	if [ -n "$empty_objects" ]; then
+		count=$(echo "$empty_objects" | wc -l)
+		echo ""
+		echo "🔧 Found $count empty git object file(s) (WSL2 corruption)."
+		echo "   Removing and re-fetching..."
+		find .git/objects/ -type f -empty -delete
+		if git fetch 2>/dev/null && git fsck --no-dangling --quiet 2>/dev/null; then
+			echo "✅ Auto-fixed! Repository is healthy."
+			exit 0
+		else
+			echo "⚠️  Auto-fix wasn't enough. Proceeding with full reset..."
+		fi
+	fi
+fi
+
+
 # Script to reset the repo to origin/main. This will destroy all unpushed branches and stashes.
 
 repo_url=$(git remote get-url origin  2>/dev/null || echo "")
