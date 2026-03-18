@@ -88,9 +88,10 @@ export const gmailSearch = {
 			.default(20)
 			.describe("Max number of message ids to return."),
 		includeSpamTrash: z.boolean().optional().default(false).describe("Include messages from spam and trash."),
+		pageToken: z.string().optional().describe("Page token from a previous search result to fetch the next page."),
 	}),
 	async handler(_cwd: string, args: Record<string, unknown>) {
-		const { query, maxResults, includeSpamTrash } = gmailSearch.schema.parse(args);
+		const { query, maxResults, includeSpamTrash, pageToken } = gmailSearch.schema.parse(args);
 		const { gmail } = await getGmailClient();
 
 		const res = await gmail.users.messages.list({
@@ -98,6 +99,7 @@ export const gmailSearch = {
 			q: query || undefined,
 			maxResults,
 			includeSpamTrash,
+			pageToken,
 		});
 
 		const messages = res.data.messages ?? [];
