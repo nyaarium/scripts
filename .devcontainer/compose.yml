@@ -14,7 +14,9 @@ services:
       # Home
       - ../volumes/home:/home/vscode:cached
     networks:
-      - agent-team-bridge-network
+      agent-team-bridge-network:
+        aliases:
+          - nyaascripts
 networks:
   agent-team-bridge-network:
     name: agent-team-bridge
