@@ -16,7 +16,7 @@ const InputIssueCommentSchema = z.object({
 	createdAt: z.string(),
 	updatedAt: z.string().nullable().optional(),
 });
-const InputIssueSchema = z.object({
+export const InputIssueSchema = z.object({
 	number: z.number(),
 	title: z.string(),
 	body: z.string().nullable(),
@@ -64,7 +64,7 @@ const OutputIssueSchema = z.object({
 
 type InputIssue = z.infer<typeof InputIssueSchema>;
 
-function transformIssue(issue: InputIssue): z.infer<typeof OutputIssueSchema> {
+export function transformIssue(issue: InputIssue): z.infer<typeof OutputIssueSchema> {
 	return {
 		number: issue.number,
 		title: issue.title,

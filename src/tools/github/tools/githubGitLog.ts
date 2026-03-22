@@ -54,7 +54,7 @@ function runGitLog(cwd: string, count: number | undefined, range: string | undef
 	});
 }
 
-function parseCommitData(rawLogData: string): z.infer<typeof OutputLogCommitSchema>[] {
+export function parseCommitData(rawLogData: string): z.infer<typeof OutputLogCommitSchema>[] {
 	const commitBlocks = rawLogData.split("{{{EOL}}}").filter((block) => block.trim());
 	const commits: z.infer<typeof OutputLogCommitSchema>[] = [];
 

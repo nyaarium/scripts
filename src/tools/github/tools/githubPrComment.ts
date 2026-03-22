@@ -9,6 +9,11 @@ const schema = z.object({
 		.describe("When provided, must be full OWNER/REPO. Leave out unless targeting another repo."),
 	prId: z.string().describe("The pull request number to comment on."),
 	body: z.string().min(1).describe('The comment body text (e.g. "@dependabot recreate").'),
+	dryRun: z
+		.boolean()
+		.optional()
+		.default(false)
+		.describe("If true, report what would be posted without actually posting."),
 });
 
 export const githubPrComment = {
@@ -19,10 +24,14 @@ export const githubPrComment = {
 	operation: "commenting on PR",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
-		const { repo, prId, body } = args;
+		const { repo, prId, body, dryRun = false } = args;
 		const ghStatus = await checkGHCLI(cwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
 		if (!ghStatus.authenticated) throw new Error(`GitHub CLI not authenticated: ${ghStatus.error}`);
+
+		if (dryRun) {
+			return { data: { dryRun: true, prId, message: `Would post comment on PR #${prId}`, body } };
+		}
 
 		return new Promise((resolve, reject) => {
 			const cmdArgs = ["pr", "comment", prId, "--body", body];

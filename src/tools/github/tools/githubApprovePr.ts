@@ -21,6 +21,11 @@ const schema = z.object({
 		.optional()
 		.default(false)
 		.describe("Whether to merge the PR after approval (auto-merge if enabled, manual merge otherwise)."),
+	dryRun: z
+		.boolean()
+		.optional()
+		.default(false)
+		.describe("If true, report what would be done without actually approving or merging."),
 });
 
 export const githubApprovePr = {
@@ -31,10 +36,19 @@ export const githubApprovePr = {
 	operation: "approving PR(s)",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
-		const { repo, prNumbers, merge: shouldMerge = false } = args;
+		const { repo, prNumbers, merge: shouldMerge = false, dryRun = false } = args;
 		const ghStatus = await checkGHCLI(cwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
 		if (!ghStatus.authenticated) throw new Error(`GitHub CLI not authenticated: ${ghStatus.error}`);
+
+		if (dryRun) {
+			const actions = prNumbers.map((prNumber) => ({
+				prNumber,
+				wouldApprove: true,
+				wouldMerge: shouldMerge,
+			}));
+			return { data: { dryRun: true, total: prNumbers.length, actions } };
+		}
 
 		const results: Record<string, unknown>[] = [];
 		const errors: Record<string, unknown>[] = [];
