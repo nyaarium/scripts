@@ -41,7 +41,7 @@ const OutputSkippedBranchSchema = z.object({
 const OutputResultSchema = z.object({
 	deleted: z.array(OutputDeletedBranchSchema),
 	skipped: z.array(OutputSkippedBranchSchema),
-	dryRun: z.boolean(),
+	dryRun: z.boolean().optional(),
 });
 
 export function parseBranchOutput(output: string): z.infer<typeof InputBranchSchema>[] {
@@ -125,6 +125,6 @@ export const githubCleanupBranches = {
 			}
 		}
 
-		return { data: OutputResultSchema.parse({ deleted, skipped, dryRun }) };
+		return { data: OutputResultSchema.parse({ deleted, skipped, ...(dryRun ? { dryRun } : {}) }) };
 	},
 };

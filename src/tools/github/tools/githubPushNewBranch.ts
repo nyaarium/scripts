@@ -154,7 +154,6 @@ export const githubPushNewBranch = {
 
 		return {
 			data: {
-				dryRun: false,
 				branchName,
 				mainBranch,
 				currentBranch,

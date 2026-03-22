@@ -98,7 +98,7 @@ export const githubApproveDependabot = {
 					skipped.push({ number: pr.number, title: pr.title, reason });
 				}
 			}
-			return { data: { approved, skipped, errors, dryRun } };
+			return { data: { approved, skipped, errors, dryRun: true } };
 		}
 
 		const repoSettings = await getRepoSettings(cwd, repo);
@@ -151,6 +151,6 @@ export const githubApproveDependabot = {
 			}
 		}
 
-		return { data: { approved, skipped, errors, dryRun } };
+		return { data: { approved, skipped, errors } };
 	},
 };
