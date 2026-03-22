@@ -1,62 +1,6 @@
 #!/bin/bash
-
-# Load .env from script directory if it exists
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$SCRIPT_DIR/.env" ]; then
     source "$SCRIPT_DIR/.env"
 fi
-
-
-REPO_NAME=$(git remote get-url origin | sed -E 's/.*github.com[:/]([^/]+\/[^.]+)(\.git)?$/\1/')
-
-while true; do
-    echo ""
-    echo "   Repo: $REPO_NAME"
-    echo -n "❓ How many days of history to look up? Enter a number: "
-    read days
-    if [ -n "$days" ]; then
-        break
-    else
-        echo "Expected a number."
-    fi
-done
-echo ""
-
-
-
-
-GIT_LOG=$(git log --author="nyaarium" --since="$days days ago" --pretty=format:"%s")
-
-# Check if there are any commits
-if [ -z "$GIT_LOG" ]; then
-	echo "No commits found."
-	exit 0
-fi
-
-# Display
-# printf '%s\n' "$GIT_LOG"
-
-# Summarize history
-JSON=$(printf '%s\n' "$GIT_LOG" | \
-jq -sR \
-	--arg prompt "\n" \
-	--arg model "o1-preview" \
-	'{
-		model: $model,
-		messages: [
-			{ role: "user", content: "You are an API. Only respond with the PLAIN TEXT response. As an API, do not repeat the request question given, and do not explain or comment on anything more than necessary.\n\nYou are given a long commit history. Summarize the user'\''s general activities and contributions in unordered list format. For generic repeats like merging Dependabot PRs, combine them and give an estimated count in words (like \"over a hundred\", or \"extensive\"). Sort the contributions by most significant." },
-			{ role: "user", content: ($prompt + .) }
-		]
-	}' | \
-curl -sSL -X POST "https://api.openai.com/v1/chat/completions" \
-	-H "Content-Type: application/json" \
-	-H "Authorization: Bearer $OPENAI_KEY" \
-	--data @-)
-if [ $? -ne 0 ]; then
-	printf '%s\n' "$JSON"
-	echo "\n"
-	echo "Error calling OpenAI API."
-	exit 1
-else
-	printf '%s\n' "$JSON" | jq -r '.choices[0].message.content'
-fi
+exec bun run "$SCRIPT_DIR/src/cli/summarizeActivity.ts" "$@"

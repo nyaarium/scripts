@@ -1,9 +1,9 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import dotenv from "dotenv";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { z } from "zod";
+import type { z } from "zod";
 import { toolsCursorAgent } from "./tools/cursorAgent/index.ts";
 import { toolsGitHub } from "./tools/github/index.ts";
 import { toolsGoogle } from "./tools/google/index.ts";
