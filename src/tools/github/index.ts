@@ -7,6 +7,7 @@ import { githubFetchPr } from "./tools/githubFetchPr.ts";
 import { githubGitLog } from "./tools/githubGitLog.ts";
 import { githubListPr } from "./tools/githubListPr.ts";
 import { githubPrComment } from "./tools/githubPrComment.ts";
+import { githubPushNewBranch } from "./tools/githubPushNewBranch.ts";
 import { githubSummarizeActivity } from "./tools/githubSummarizeActivity.ts";
 
 export const toolsGitHub = [
@@ -19,5 +20,6 @@ export const toolsGitHub = [
 	githubGitLog,
 	githubApprovePr,
 	githubCleanupBranches,
+	githubPushNewBranch,
 	githubSummarizeActivity,
 ];
