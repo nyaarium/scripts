@@ -1,3 +1,4 @@
+import { githubApproveDependabot } from "./tools/githubApproveDependabot.ts";
 import { githubApprovePr } from "./tools/githubApprovePr.ts";
 import { githubCleanupBranches } from "./tools/githubCleanupBranches.ts";
 import { githubFetchCommit } from "./tools/githubFetchCommit.ts";
@@ -10,6 +11,7 @@ import { githubSummarizeActivity } from "./tools/githubSummarizeActivity.ts";
 
 export const toolsGitHub = [
 	githubFetchCommit,
+	githubApproveDependabot,
 	githubFetchPr,
 	githubListPr,
 	githubPrComment,
