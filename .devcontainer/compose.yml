@@ -8,7 +8,11 @@ services:
       pull: true
       args:
         PROJECT_NAME: nyaascripts
+    environment:
+      SSH_AUTH_SOCK: /tmp/ssh-agent.sock
     volumes:
+      # SSH agent forwarding
+      - ~/.ssh/agent.sock:/tmp/ssh-agent.sock
       # Workspace
       - ..:/workspace/nyaascripts:cached
       # Home

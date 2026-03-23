@@ -10,8 +10,9 @@ fi
 
 # Configure SSH Agent
 
-# Check .bashrc for "Start SSH Agent" and remove it
+# Check .bashrc for "SSH Agent" block and remove it
 EXISTS=$(grep -c "SSH Agent - Start" $HOME/.bashrc)
+sed -i "/Start SSH Agent/,/End SSH Agent/d" $HOME/.bashrc
 sed -i "/SSH Agent - Start/,/SSH Agent - End/d" $HOME/.bashrc
 
 # Write the block to .bashrc
@@ -21,23 +22,19 @@ if [[ $EXISTS -eq 0 ]]; then
 fi
 echo "# ==== SSH Agent - Start ====" >> $HOME/.bashrc
 echo "if [[ -z \"\$SSH_AUTH_SOCK\" ]]; then" >> $HOME/.bashrc
-echo "    if [[ -f \$HOME/.ssh/ssh-agent ]]; then" >> $HOME/.bashrc
-echo "        eval \$(cat \$HOME/.ssh/ssh-agent) > /dev/null" >> $HOME/.bashrc
+echo "    SSH_AGENT_SOCK=\"\$HOME/.ssh/agent.sock\"" >> $HOME/.bashrc
+echo "    SSH_AGENT_ENV=\"\$HOME/.ssh/ssh-agent\"" >> $HOME/.bashrc
+echo "" >> $HOME/.bashrc
+echo "    if [[ -f \"\$SSH_AGENT_ENV\" ]]; then" >> $HOME/.bashrc
+echo "        eval \$(cat \"\$SSH_AGENT_ENV\") > /dev/null" >> $HOME/.bashrc
 echo "    fi" >> $HOME/.bashrc
 echo "" >> $HOME/.bashrc
-echo "    AGENT_RUNNING=\$(ps -ax | grep 'ssh-agent -s' | grep -v grep | wc -l | tr -d '[:space:]')" >> $HOME/.bashrc
-echo "    if [[ \$AGENT_RUNNING -eq 0 ]]; then" >> $HOME/.bashrc
-echo "        # Start agent" >> $HOME/.bashrc
-echo "        ssh-agent -s &> \$HOME/.ssh/ssh-agent" >> $HOME/.bashrc
-echo "        eval \$(cat \$HOME/.ssh/ssh-agent) > /dev/null" >> $HOME/.bashrc
-echo "    fi" >> $HOME/.bashrc
-echo "" >> $HOME/.bashrc
-echo "    RESULT_LIST=\$(ssh-add -l 2>&1)" >> $HOME/.bashrc
-echo "    if [[ \$? -ne 0 ]]; then" >> $HOME/.bashrc
-echo "        # Restart agent" >> $HOME/.bashrc
-echo "        pkill ssh-agent" >> $HOME/.bashrc
-echo "        ssh-agent -s &> \$HOME/.ssh/ssh-agent" >> $HOME/.bashrc
-echo "        eval \$(cat \$HOME/.ssh/ssh-agent) > /dev/null" >> $HOME/.bashrc
+echo "    if ! ssh-add -l &>/dev/null; then" >> $HOME/.bashrc
+echo "        # Kill stale agent and start fresh with pinned socket" >> $HOME/.bashrc
+echo "        pkill ssh-agent 2>/dev/null" >> $HOME/.bashrc
+echo "        rm -f \"\$SSH_AGENT_SOCK\"" >> $HOME/.bashrc
+echo "        ssh-agent -a \"\$SSH_AGENT_SOCK\" -s &> \"\$SSH_AGENT_ENV\"" >> $HOME/.bashrc
+echo "        eval \$(cat \"\$SSH_AGENT_ENV\") > /dev/null" >> $HOME/.bashrc
 echo "    fi" >> $HOME/.bashrc
 echo "" >> $HOME/.bashrc
 echo "    # Add key to agent" >> $HOME/.bashrc
@@ -58,25 +55,21 @@ exit 0
 
 # Original Code:
 
-# ==== Start SSH Agent ====
+# ==== SSH Agent - Start ====
 if [[ -z "$SSH_AUTH_SOCK" ]]; then
-    if [[ -f $HOME/.ssh/ssh-agent ]]; then
-        eval $(cat $HOME/.ssh/ssh-agent) > /dev/null
+    SSH_AGENT_SOCK="$HOME/.ssh/agent.sock"
+    SSH_AGENT_ENV="$HOME/.ssh/ssh-agent"
+
+    if [[ -f "$SSH_AGENT_ENV" ]]; then
+        eval $(cat "$SSH_AGENT_ENV") > /dev/null
     fi
 
-    AGENT_RUNNING=$(ps -ax | grep 'ssh-agent -s' | grep -v grep | wc -l | tr -d '[:space:]')
-    if [[ $AGENT_RUNNING -eq 0 ]]; then
-        # Start agent
-        ssh-agent -s &> $HOME/.ssh/ssh-agent
-        eval $(cat $HOME/.ssh/ssh-agent) > /dev/null
-    fi
-
-    RESULT_LIST=$(ssh-add -l 2>&1)
-    if [[ $? -ne 0 ]]; then
-        # Restart agent
-        pkill ssh-agent
-        ssh-agent -s &> $HOME/.ssh/ssh-agent
-        eval $(cat $HOME/.ssh/ssh-agent) > /dev/null
+    if ! ssh-add -l &>/dev/null; then
+        # Kill stale agent and start fresh with pinned socket
+        pkill ssh-agent 2>/dev/null
+        rm -f "$SSH_AGENT_SOCK"
+        ssh-agent -a "$SSH_AGENT_SOCK" -s &> "$SSH_AGENT_ENV"
+        eval $(cat "$SSH_AGENT_ENV") > /dev/null
     fi
 
     # Add key to agent
@@ -86,4 +79,4 @@ if [[ -z "$SSH_AUTH_SOCK" ]]; then
         echo $RESULT_ADD
     fi
 fi
-# ==== End SSH Agent ====
+# ==== SSH Agent - End ====
