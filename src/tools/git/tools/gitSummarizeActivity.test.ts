@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { githubSummarizeActivity } from "./githubSummarizeActivity.ts";
+import { gitSummarizeActivity } from "./gitSummarizeActivity.ts";
 
-const schema = githubSummarizeActivity.schema;
+const schema = gitSummarizeActivity.schema;
 
-describe("githubSummarizeActivity schema", () => {
+describe("gitSummarizeActivity schema", () => {
 	it("accepts valid days and no author", () => {
 		const result = schema.safeParse({ days: 7 });
 		expect(result.success).toBe(true);

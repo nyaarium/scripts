@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseCommitData } from "./githubGitLog.ts";
+import { parseCommitData } from "./gitLog.ts";
 
 describe("parseCommitData", () => {
 	it("parses a single commit", () => {
@@ -59,9 +59,9 @@ describe("parseCommitData", () => {
 	});
 });
 
-describe("githubGitLog schema", () => {
-	const { githubGitLog } = require("./githubGitLog.ts");
-	const schema = githubGitLog.schema;
+describe("gitLog schema", () => {
+	const { gitLog } = require("./gitLog.ts");
+	const schema = gitLog.schema;
 
 	it("accepts count mode", () => {
 		const result = schema.safeParse({ count: 10 });

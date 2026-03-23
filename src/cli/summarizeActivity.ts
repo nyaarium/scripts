@@ -1,6 +1,6 @@
 import path from "node:path";
 import dotenv from "dotenv";
-import { githubSummarizeActivity } from "../tools/github/tools/githubSummarizeActivity.ts";
+import { gitSummarizeActivity } from "../tools/git/tools/gitSummarizeActivity.ts";
 
 // Load .env from project root
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
@@ -16,7 +16,7 @@ if (Number.isNaN(days) || days < 1 || days > 365) {
 	process.exit(1);
 }
 
-const result = await githubSummarizeActivity.handler(cwd, { days, author });
+const result = await gitSummarizeActivity.handler(cwd, { days, author });
 if (result?.data?.summary) {
 	console.log(result.data.summary);
 } else {

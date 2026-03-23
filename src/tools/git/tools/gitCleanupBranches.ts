@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
-import { checkGHCLI } from "../lib/checkGHCLI.ts";
+import { checkGHCLI } from "../../github/lib/checkGHCLI.ts";
 
 function runGit(cwd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
 	return new Promise((resolve) => {
@@ -63,14 +63,14 @@ const schema = z.object({
 		.string()
 		.optional()
 		.describe(
-			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused — this tool operates on the local git repository at the MCP client root.",
+			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused - this tool operates on the local git repository at the MCP client root.",
 		),
 	dryRun: z.boolean().optional().describe("If true, report what would be deleted without actually deleting."),
 });
 
-export const githubCleanupBranches = {
-	name: "githubCleanupBranches",
-	title: "github-cleanup-branches",
+export const gitCleanupBranches = {
+	name: "gitCleanupBranches",
+	title: "git-cleanup-branches",
 	description:
 		"Fetch/prune remote refs and delete local branches that are safely removable (merged, gone remote, no unpushed work). Requires the MCP client root to be a local git repository. Reports what was deleted and what was skipped.",
 	schema,

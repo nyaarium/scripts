@@ -35,13 +35,13 @@ const schema = z.object({
 		.string()
 		.optional()
 		.describe(
-			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused — this tool reads from the local git repository at the MCP client root.",
+			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused - this tool reads from the local git repository at the MCP client root.",
 		),
 });
 
-export const githubSummarizeActivity = {
-	name: "githubSummarizeActivity",
-	title: "github-summarize-activity",
+export const gitSummarizeActivity = {
+	name: "gitSummarizeActivity",
+	title: "git-summarize-activity",
 	description:
 		"Fetch git log for a time period and summarize contributions using an LLM. Requires the MCP client root to be a local git repository. Returns a bullet-point summary of activities.",
 	schema,
