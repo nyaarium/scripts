@@ -86,4 +86,9 @@ describe("githubPushNewBranch schema", () => {
 		expect(result.success).toBe(true);
 		if (result.success) expect(result.data.dryRun).toBe(false);
 	});
+
+	it("accepts repo parameter", () => {
+		const result = schema.safeParse({ branchName: "my-feature", repo: "owner/repo" });
+		expect(result.success).toBe(true);
+	});
 });

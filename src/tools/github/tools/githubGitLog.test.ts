@@ -85,4 +85,9 @@ describe("githubGitLog schema", () => {
 		const result = schema.safeParse({ count: 5, outputPath: "/tmp/log.json" });
 		expect(result.success).toBe(true);
 	});
+
+	it("accepts repo parameter", () => {
+		const result = schema.safeParse({ count: 5, repo: "owner/repo" });
+		expect(result.success).toBe(true);
+	});
 });

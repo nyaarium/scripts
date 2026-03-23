@@ -44,4 +44,9 @@ describe("githubSummarizeActivity schema", () => {
 		expect(schema.safeParse({ days: 1 }).success).toBe(true);
 		expect(schema.safeParse({ days: 365 }).success).toBe(true);
 	});
+
+	it("accepts repo parameter", () => {
+		const result = schema.safeParse({ days: 7, repo: "owner/repo" });
+		expect(result.success).toBe(true);
+	});
 });

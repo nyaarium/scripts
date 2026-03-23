@@ -45,6 +45,12 @@ const schema = z.object({
 	prTitle: z.string().optional().describe("Pull request title. Required if createPr is true."),
 	createPr: z.boolean().optional().default(false).describe("Whether to create a pull request after pushing."),
 	autoMerge: z.boolean().optional().default(false).describe("Whether to enable auto-merge on the created PR."),
+	repo: z
+		.string()
+		.optional()
+		.describe(
+			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Required when not calling from within a git repository.",
+		),
 	dryRun: z.boolean().optional().default(false).describe("If true, report what would happen without executing."),
 });
 
@@ -52,10 +58,11 @@ export const githubPushNewBranch = {
 	name: "githubPushNewBranch",
 	title: "github-push-new-branch",
 	description:
-		"Push the current work to a new branch, optionally create a pull request and enable auto-merge. If on the main branch, pushes commits to the new branch and resets main. If on a feature branch, pushes to the new branch name.",
+		"Push the current work to a new branch, optionally create a pull request and enable auto-merge. Requires the MCP client root to be a local git repository with a remote. If on the main branch, pushes commits to the new branch and resets main. If on a feature branch, pushes to the new branch name.",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
-		const { branchName, prTitle, createPr = false, autoMerge = false, dryRun = false } = args;
+		const { branchName, prTitle, createPr = false, autoMerge = false, repo, dryRun = false } = args;
+		const repoArgs = repo ? ["--repo", repo] : [];
 
 		const ghStatus = await checkGHCLI(cwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
@@ -137,18 +144,19 @@ export const githubPushNewBranch = {
 				prTitle,
 				"--body",
 				"",
+				...repoArgs,
 			]);
 			prUrl = prCreateOutput.trim();
 
 			// Extract PR number
-			const prViewRaw = await runGh(cwd, ["pr", "view", branchName, "--json", "number"]);
+			const prViewRaw = await runGh(cwd, ["pr", "view", branchName, "--json", "number", ...repoArgs]);
 			const prViewData = JSON.parse(prViewRaw) as { number: number };
 			prNumber = String(prViewData.number);
 
 			if (autoMerge && prNumber) {
-				const repoSettings = await getRepoSettings(cwd, undefined);
+				const repoSettings = await getRepoSettings(cwd, repo);
 				const mergeMode = repoSettings.allowMergeCommit ? "m" : repoSettings.allowRebaseMerge ? "r" : "s";
-				await enableAutoMerge(cwd, mergeMode, undefined, prNumber);
+				await enableAutoMerge(cwd, mergeMode, repo, prNumber);
 			}
 		}
 

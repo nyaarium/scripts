@@ -59,6 +59,12 @@ export function parseBranchOutput(output: string): z.infer<typeof InputBranchSch
 }
 
 const schema = z.object({
+	repo: z
+		.string()
+		.optional()
+		.describe(
+			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused — this tool operates on the local git repository at the MCP client root.",
+		),
 	dryRun: z.boolean().optional().describe("If true, report what would be deleted without actually deleting."),
 });
 
@@ -66,7 +72,7 @@ export const githubCleanupBranches = {
 	name: "githubCleanupBranches",
 	title: "github-cleanup-branches",
 	description:
-		"Fetch/prune remote refs and delete local branches that are safely removable (merged, gone remote, no unpushed work). Reports what was deleted and what was skipped.",
+		"Fetch/prune remote refs and delete local branches that are safely removable (merged, gone remote, no unpushed work). Requires the MCP client root to be a local git repository. Reports what was deleted and what was skipped.",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
 		const { dryRun = false } = args;

@@ -31,13 +31,19 @@ function runGitLog(cwd: string, days: number, author?: string): Promise<string> 
 const schema = z.object({
 	days: z.number().int().min(1).max(365).describe("Number of days of history to summarize."),
 	author: z.string().optional().describe("Git author name to filter by. If omitted, includes all authors."),
+	repo: z
+		.string()
+		.optional()
+		.describe(
+			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused — this tool reads from the local git repository at the MCP client root.",
+		),
 });
 
 export const githubSummarizeActivity = {
 	name: "githubSummarizeActivity",
 	title: "github-summarize-activity",
 	description:
-		"Fetch git log for a time period and summarize contributions using an LLM. Returns a bullet-point summary of activities.",
+		"Fetch git log for a time period and summarize contributions using an LLM. Requires the MCP client root to be a local git repository. Returns a bullet-point summary of activities.",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
 		const { days, author } = args;

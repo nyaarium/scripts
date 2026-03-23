@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseBranchOutput } from "./githubCleanupBranches.ts";
+import { githubCleanupBranches, parseBranchOutput } from "./githubCleanupBranches.ts";
 
 describe("parseBranchOutput", () => {
 	it("parses a branch with gone remote", () => {
@@ -56,5 +56,27 @@ describe("parseBranchOutput", () => {
 		const output = "diverged|origin/diverged|[ahead 1, behind 3]";
 		const result = parseBranchOutput(output);
 		expect(result).toEqual([{ name: "diverged", upstream: "origin/diverged", track: "[ahead 1, behind 3]" }]);
+	});
+});
+
+describe("githubCleanupBranches schema", () => {
+	const schema = githubCleanupBranches.schema;
+
+	it("accepts empty input", () => {
+		expect(schema.safeParse({}).success).toBe(true);
+	});
+
+	it("accepts dryRun", () => {
+		expect(schema.safeParse({ dryRun: true }).success).toBe(true);
+	});
+
+	it("accepts repo parameter", () => {
+		expect(schema.safeParse({ repo: "owner/repo" }).success).toBe(true);
+	});
+
+	it("dryRun is undefined when not provided", () => {
+		const result = schema.safeParse({});
+		expect(result.success).toBe(true);
+		if (result.success) expect(result.data.dryRun).toBeUndefined();
 	});
 });
