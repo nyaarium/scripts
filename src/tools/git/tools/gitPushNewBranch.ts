@@ -74,7 +74,7 @@ export const gitPushNewBranch = {
 	name: "gitPushNewBranch",
 	title: "git-push-new-branch",
 	description:
-		"Push the current work to a new branch, optionally create a pull request and enable auto-merge. Requires a local git repository with a remote. If on the main branch, pushes commits to the new branch and resets main. If on a feature branch, pushes to the new branch name.",
+		"Move commits from main to a new branch and optionally create a PR. When on main, this pushes commits to the new branch and resets local main back to origin/main (commits are moved, not copied). When on a feature branch, pushes to the new branch name. After using this tool, always check gitStatus and gitPull to confirm local state is clean, and verify the PR and any CI runners before resuming other work.",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
 		const { branchName, prTitle, createPr = false, autoMerge = false, dryRun = false } = args;
