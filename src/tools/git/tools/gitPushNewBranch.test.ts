@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseOwnerRepoFromRemote, slugifyBranchName } from "./githubPushNewBranch.ts";
+import { parseOwnerRepoFromRemote, slugifyBranchName } from "./gitPushNewBranch.ts";
 
 describe("slugifyBranchName", () => {
 	it("converts spaces to hyphens", () => {
@@ -65,9 +65,9 @@ describe("parseOwnerRepoFromRemote", () => {
 	});
 });
 
-describe("githubPushNewBranch schema", () => {
-	const { githubPushNewBranch } = require("./githubPushNewBranch.ts");
-	const schema = githubPushNewBranch.schema;
+describe("gitPushNewBranch schema", () => {
+	const { gitPushNewBranch } = require("./gitPushNewBranch.ts");
+	const schema = gitPushNewBranch.schema;
 
 	it("accepts minimal valid input", () => {
 		const result = schema.safeParse({ branchName: "my-feature" });

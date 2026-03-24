@@ -9,7 +9,6 @@ import { githubFetchWorkflowRun } from "./tools/githubFetchWorkflowRun.ts";
 import { githubFetchWorkflowRuns } from "./tools/githubFetchWorkflowRuns.ts";
 import { githubListPr } from "./tools/githubListPr.ts";
 import { githubPrComment } from "./tools/githubPrComment.ts";
-import { githubPushNewBranch } from "./tools/githubPushNewBranch.ts";
 import { githubRerunWorkflow } from "./tools/githubRerunWorkflow.ts";
 import { githubUpdateIssue } from "./tools/githubUpdateIssue.ts";
 
@@ -21,7 +20,6 @@ export const toolsGitHub = [
 	githubPrComment,
 	githubFetchIssue,
 	githubApprovePr,
-	githubPushNewBranch,
 	githubFetchWorkflowRuns,
 	githubFetchWorkflowRun,
 	githubAwaitWorkflowRun,
