@@ -87,7 +87,7 @@ describe("gitLog schema", () => {
 	});
 
 	it("accepts repo parameter", () => {
-		const result = schema.safeParse({ count: 5, repo: "owner/repo" });
+		const result = schema.safeParse({ count: 5, repoPath: "/workspace/nyaascripts" });
 		expect(result.success).toBe(true);
 	});
 });

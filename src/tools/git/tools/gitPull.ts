@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
-import { repoParam } from "../lib/repoSchema.ts";
+import { repoPathParam } from "../lib/repoSchema.ts";
 import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 function runGit(cwd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -128,7 +128,7 @@ export function parsePullOutput(stdout: string, stderr: string, code: number): z
 }
 
 const schema = z.object({
-	repo: repoParam,
+	repoPath: repoPathParam,
 });
 
 export const gitPull = {
@@ -139,7 +139,7 @@ export const gitPull = {
 	operation: "pulling from remote",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
-		const effectiveCwd = resolveRepoCwd(cwd, args.repo);
+		const effectiveCwd = resolveRepoCwd(cwd, args.repoPath);
 		const result = await runGit(effectiveCwd, ["pull"]);
 		const data = parsePullOutput(result.stdout, result.stderr, result.code);
 

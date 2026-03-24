@@ -46,7 +46,7 @@ describe("gitSummarizeActivity schema", () => {
 	});
 
 	it("accepts repo parameter", () => {
-		const result = schema.safeParse({ days: 7, repo: "owner/repo" });
+		const result = schema.safeParse({ days: 7, repoPath: "/workspace/nyaascripts" });
 		expect(result.success).toBe(true);
 	});
 });

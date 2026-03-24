@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
-import { repoParam } from "../lib/repoSchema.ts";
+import { repoPathParam } from "../lib/repoSchema.ts";
 import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 function runGit(cwd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -109,7 +109,7 @@ export function parseStatusOutput(output: string): z.infer<typeof OutputStatusSc
 }
 
 const schema = z.object({
-	repo: repoParam,
+	repoPath: repoPathParam,
 });
 
 export const gitStatus = {
@@ -120,7 +120,7 @@ export const gitStatus = {
 	operation: "fetching git status",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
-		const effectiveCwd = resolveRepoCwd(cwd, args.repo);
+		const effectiveCwd = resolveRepoCwd(cwd, args.repoPath);
 		const result = await runGit(effectiveCwd, ["status", "--porcelain=v2", "--branch"]);
 		if (result.code !== 0) throw new Error(`git status failed: ${result.stderr}`);
 

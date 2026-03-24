@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
-import { repoParam } from "../lib/repoSchema.ts";
+import { repoPathParam } from "../lib/repoSchema.ts";
 import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 const OutputLogCommitSchema = z.object({
@@ -101,7 +101,7 @@ const schema = z.object({
 		.optional()
 		.describe("Number of log entries to fetch (mutually exclusive with range)."),
 	range: z.string().optional().describe("Git range (single hash or hash..hash, mutually exclusive with count)."),
-	repo: repoParam,
+	repoPath: repoPathParam,
 	outputPath: z
 		.string()
 		.optional()
@@ -120,7 +120,7 @@ export const gitLog = {
 		if (count !== undefined && range !== undefined) throw new Error("Cannot specify both count and range");
 		if (count === undefined && range === undefined) throw new Error("Either count or range is required");
 
-		const effectiveCwd = resolveRepoCwd(cwd, args.repo);
+		const effectiveCwd = resolveRepoCwd(cwd, args.repoPath);
 		const rawLogData = await runGitLog(effectiveCwd, count, range);
 		const commits = parseCommitData(rawLogData);
 		let data: unknown = OutputLogDataSchema.parse(commits);

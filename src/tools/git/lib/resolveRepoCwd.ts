@@ -1,43 +1,22 @@
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join } from "node:path";
 
 /**
  * Resolve the working directory for git operations.
  *
- * When `repo` is omitted, returns the MCP client root (`mcpCwd`).
- * When `repo` is an absolute path, uses it directly.
- * When `repo` is OWNER/REPO, searches common locations for the REPO directory.
+ * When `repoPath` is omitted, returns the MCP client root (`mcpCwd`).
+ * When `repoPath` is an absolute path, validates it has a `.git` directory and uses it.
  */
-export function resolveRepoCwd(mcpCwd: string, repo?: string): string {
-	if (!repo) return mcpCwd;
+export function resolveRepoCwd(mcpCwd: string, repoPath?: string): string {
+	if (!repoPath) return mcpCwd;
 
-	// Absolute path: use directly
-	if (repo.startsWith("/")) {
-		if (!existsSync(join(repo, ".git"))) {
-			throw new Error(`Not a git repository: ${repo}`);
-		}
-		return repo;
+	if (!repoPath.startsWith("/")) {
+		throw new Error(`repoPath must be an absolute path, got: "${repoPath}"`);
 	}
 
-	// OWNER/REPO format: extract repo name and search common locations
-	const repoName = repo.includes("/") ? repo.split("/").pop()! : repo;
-
-	const candidates = [
-		join(dirname(mcpCwd), repoName), // sibling of current project
-		join("/workspace", repoName), // devcontainer default
-		join(homedir(), "projects", repoName),
-		join(homedir(), repoName),
-	];
-
-	for (const candidate of candidates) {
-		const resolved = resolve(candidate);
-		if (existsSync(join(resolved, ".git"))) {
-			return resolved;
-		}
+	if (!existsSync(join(repoPath, ".git"))) {
+		throw new Error(`Not a git repository: ${repoPath}`);
 	}
 
-	throw new Error(
-		`Could not find local git repository for "${repo}". Searched:\n${candidates.map((c) => `  - ${resolve(c)}`).join("\n")}`,
-	);
+	return repoPath;
 }
