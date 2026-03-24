@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
+import { repoParam } from "../lib/repoSchema.ts";
+import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 function runGit(cwd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
 	return new Promise((resolve) => {
@@ -107,12 +109,7 @@ export function parseStatusOutput(output: string): z.infer<typeof OutputStatusSc
 }
 
 const schema = z.object({
-	repo: z
-		.string()
-		.optional()
-		.describe(
-			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused - this tool operates on the local git repository at the MCP client root.",
-		),
+	repo: repoParam,
 });
 
 export const gitStatus = {
@@ -122,8 +119,9 @@ export const gitStatus = {
 		"Get the working tree status of the local git repository. Returns branch name, upstream tracking info, ahead/behind counts, and lists of staged, unstaged, and untracked files.",
 	operation: "fetching git status",
 	schema,
-	async handler(cwd: string, _args: z.infer<typeof schema>) {
-		const result = await runGit(cwd, ["status", "--porcelain=v2", "--branch"]);
+	async handler(cwd: string, args: z.infer<typeof schema>) {
+		const effectiveCwd = resolveRepoCwd(cwd, args.repo);
+		const result = await runGit(effectiveCwd, ["status", "--porcelain=v2", "--branch"]);
 		if (result.code !== 0) throw new Error(`git status failed: ${result.stderr}`);
 
 		return { data: parseStatusOutput(result.stdout) };

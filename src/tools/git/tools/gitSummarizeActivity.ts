@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { type Message, OpenRouterClient } from "openrouter-kit";
 import { z } from "zod";
+import { repoParam } from "../lib/repoSchema.ts";
+import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 function runGitLog(cwd: string, days: number, author?: string): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -31,12 +33,7 @@ function runGitLog(cwd: string, days: number, author?: string): Promise<string> 
 const schema = z.object({
 	days: z.number().int().min(1).max(365).describe("Number of days of history to summarize."),
 	author: z.string().optional().describe("Git author name to filter by. If omitted, includes all authors."),
-	repo: z
-		.string()
-		.optional()
-		.describe(
-			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused - this tool reads from the local git repository at the MCP client root.",
-		),
+	repo: repoParam,
 });
 
 export const gitSummarizeActivity = {
@@ -47,8 +44,9 @@ export const gitSummarizeActivity = {
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
 		const { days, author } = args;
+		const effectiveCwd = resolveRepoCwd(cwd, args.repo);
 
-		const raw = await runGitLog(cwd, days, author);
+		const raw = await runGitLog(effectiveCwd, days, author);
 		if (!raw) return { data: { summary: "No commits found for the specified period." } };
 
 		const apiKey = process.env.OPENROUTER_KEY;

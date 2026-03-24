@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
+import { repoParam } from "../lib/repoSchema.ts";
+import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 function runGit(cwd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
 	return new Promise((resolve) => {
@@ -126,12 +128,7 @@ export function parsePullOutput(stdout: string, stderr: string, code: number): z
 }
 
 const schema = z.object({
-	repo: z
-		.string()
-		.optional()
-		.describe(
-			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused - this tool operates on the local git repository at the MCP client root.",
-		),
+	repo: repoParam,
 });
 
 export const gitPull = {
@@ -141,8 +138,9 @@ export const gitPull = {
 		"Pull changes from the remote for the current branch. Returns structured output with merge strategy, file changes, and any conflicts.",
 	operation: "pulling from remote",
 	schema,
-	async handler(cwd: string, _args: z.infer<typeof schema>) {
-		const result = await runGit(cwd, ["pull"]);
+	async handler(cwd: string, args: z.infer<typeof schema>) {
+		const effectiveCwd = resolveRepoCwd(cwd, args.repo);
+		const result = await runGit(effectiveCwd, ["pull"]);
 		const data = parsePullOutput(result.stdout, result.stderr, result.code);
 
 		if (!data.success) {

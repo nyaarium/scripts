@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
+import { repoParam } from "../lib/repoSchema.ts";
+import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 function runGit(cwd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
 	return new Promise((resolve) => {
@@ -92,12 +94,7 @@ export function parseFetchOutput(stderr: string): z.infer<typeof OutputFetchSche
 }
 
 const schema = z.object({
-	repo: z
-		.string()
-		.optional()
-		.describe(
-			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused - this tool operates on the local git repository at the MCP client root.",
-		),
+	repo: repoParam,
 });
 
 export const gitFetch = {
@@ -107,8 +104,9 @@ export const gitFetch = {
 		"Fetch from remote and prune deleted remote-tracking references. Returns structured output showing new branches, updated refs, and pruned refs.",
 	operation: "fetching from remote",
 	schema,
-	async handler(cwd: string, _args: z.infer<typeof schema>) {
-		const result = await runGit(cwd, ["fetch", "--prune"]);
+	async handler(cwd: string, args: z.infer<typeof schema>) {
+		const effectiveCwd = resolveRepoCwd(cwd, args.repo);
+		const result = await runGit(effectiveCwd, ["fetch", "--prune"]);
 		if (result.code !== 0) throw new Error(`git fetch failed: ${result.stderr}`);
 
 		// git fetch writes progress/ref updates to stderr
