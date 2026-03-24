@@ -87,7 +87,7 @@ Every tool exports `{ name, title, description, schema, handler }`:
 
 ## MCP Tools
 
-### Git (4 tools)
+### Git (7 tools)
 
 Local git tools that operate on the repository at the MCP client root.
 
@@ -95,10 +95,13 @@ Local git tools that operate on the repository at the MCP client root.
 |------|-------------|---------|--------|
 | `gitLog` | Git log with parsed commits | No | - |
 | `gitStatus` | Working tree status (branch, staged, unstaged, untracked) | No | - |
-| `gitSummarizeActivity` | Summarize recent repo activity | No | - |
+| `gitFetch` | Fetch from remote and prune deleted refs | No | - |
+| `gitPull` | Pull changes from remote | No | - |
+| `gitPushNewBranch` | Create branch, push, open PR | Yes | Yes |
 | `gitCleanupBranches` | Delete merged branches | Yes | Yes |
+| `gitSummarizeActivity` | Summarize recent repo activity | No | - |
 
-### GitHub (14 tools)
+### GitHub (13 tools)
 
 All GitHub tools use the `gh` CLI under the hood.
 
@@ -114,7 +117,6 @@ All GitHub tools use the `gh` CLI under the hood.
 | `githubPrComment` | Post a comment on a PR | Yes | Yes |
 | `githubApprovePr` | Approve and optionally merge PRs | Yes | Yes |
 | `githubApproveDependabot` | Approve Dependabot PRs | Yes | Yes |
-| `githubPushNewBranch` | Create branch, push, open PR | Yes | Yes |
 | `githubRerunWorkflow` | Re-run a workflow (all or failed only) | Yes | Yes |
 | `githubCreateIssue` | Create a new issue | Yes | Yes |
 | `githubUpdateIssue` | Update issue state/title/body/labels/assignees | Yes | Yes |

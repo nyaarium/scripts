@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
-import { repoPathParam } from "../../git/lib/repoSchema.ts";
-import { resolveRepoCwd } from "../../git/lib/resolveRepoCwd.ts";
-import { enableAutoMerge, getRepoSettings } from "../lib/approvePr.ts";
-import { checkGHCLI } from "../lib/checkGHCLI.ts";
-import { runGh } from "../lib/runGh.ts";
+import { enableAutoMerge, getRepoSettings } from "../../github/lib/approvePr.ts";
+import { checkGHCLI } from "../../github/lib/checkGHCLI.ts";
+import { runGh } from "../../github/lib/runGh.ts";
+import { repoPathParam } from "../lib/repoSchema.ts";
+import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 function runGit(cwd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
 	return new Promise((resolve) => {
@@ -70,9 +70,9 @@ const schema = z.object({
 	dryRun: z.boolean().optional().default(false).describe("If true, report what would happen without executing."),
 });
 
-export const githubPushNewBranch = {
-	name: "githubPushNewBranch",
-	title: "github-push-new-branch",
+export const gitPushNewBranch = {
+	name: "gitPushNewBranch",
+	title: "git-push-new-branch",
 	description:
 		"Push the current work to a new branch, optionally create a pull request and enable auto-merge. Requires a local git repository with a remote. If on the main branch, pushes commits to the new branch and resets main. If on a feature branch, pushes to the new branch name.",
 	schema,
