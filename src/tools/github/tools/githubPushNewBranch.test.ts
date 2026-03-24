@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { slugifyBranchName } from "./githubPushNewBranch.ts";
+import { parseOwnerRepoFromRemote, slugifyBranchName } from "./githubPushNewBranch.ts";
 
 describe("slugifyBranchName", () => {
 	it("converts spaces to hyphens", () => {
@@ -43,8 +43,29 @@ describe("slugifyBranchName", () => {
 	});
 });
 
+describe("parseOwnerRepoFromRemote", () => {
+	it("parses SSH remote URL", () => {
+		expect(parseOwnerRepoFromRemote("git@github.com:octocat/hello-world.git")).toBe("octocat/hello-world");
+	});
+
+	it("parses SSH remote URL without .git suffix", () => {
+		expect(parseOwnerRepoFromRemote("git@github.com:octocat/hello-world")).toBe("octocat/hello-world");
+	});
+
+	it("parses HTTPS remote URL", () => {
+		expect(parseOwnerRepoFromRemote("https://github.com/octocat/hello-world.git")).toBe("octocat/hello-world");
+	});
+
+	it("parses HTTPS remote URL without .git suffix", () => {
+		expect(parseOwnerRepoFromRemote("https://github.com/octocat/hello-world")).toBe("octocat/hello-world");
+	});
+
+	it("throws for invalid remote URL", () => {
+		expect(() => parseOwnerRepoFromRemote("not-a-url")).toThrow("Could not parse OWNER/REPO");
+	});
+});
+
 describe("githubPushNewBranch schema", () => {
-	// Import inline to avoid circular issues with handler
 	const { githubPushNewBranch } = require("./githubPushNewBranch.ts");
 	const schema = githubPushNewBranch.schema;
 
@@ -87,8 +108,8 @@ describe("githubPushNewBranch schema", () => {
 		if (result.success) expect(result.data.dryRun).toBe(false);
 	});
 
-	it("accepts repo parameter", () => {
-		const result = schema.safeParse({ branchName: "my-feature", repo: "owner/repo" });
+	it("accepts repoPath parameter", () => {
+		const result = schema.safeParse({ branchName: "my-feature", repoPath: "/workspace/nyaascripts" });
 		expect(result.success).toBe(true);
 	});
 });

@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
+import { repoPathParam } from "../../git/lib/repoSchema.ts";
+import { resolveRepoCwd } from "../../git/lib/resolveRepoCwd.ts";
 import { enableAutoMerge, getRepoSettings } from "../lib/approvePr.ts";
 import { checkGHCLI } from "../lib/checkGHCLI.ts";
 import { runGh } from "../lib/runGh.ts";
@@ -40,17 +42,31 @@ export async function detectMainBranch(cwd: string): Promise<string> {
 	throw new Error("Could not find 'main' or 'master' branch.");
 }
 
+// Parses OWNER/REPO from a git remote URL (SSH or HTTPS)
+export function parseOwnerRepoFromRemote(remoteUrl: string): string {
+	// SSH: git@github.com:owner/repo.git
+	const sshMatch = remoteUrl.match(/:([^/]+\/[^/]+?)(?:\.git)?$/);
+	if (sshMatch) return sshMatch[1];
+
+	// HTTPS: https://github.com/owner/repo.git
+	const httpsMatch = remoteUrl.match(/github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/);
+	if (httpsMatch) return httpsMatch[1];
+
+	throw new Error(`Could not parse OWNER/REPO from remote URL: ${remoteUrl}`);
+}
+
+async function deriveGitHubRepo(cwd: string): Promise<string> {
+	const result = await runGit(cwd, ["remote", "get-url", "origin"]);
+	if (result.code !== 0) throw new Error(`git remote get-url origin failed: ${result.stderr}`);
+	return parseOwnerRepoFromRemote(result.stdout);
+}
+
 const schema = z.object({
 	branchName: z.string().describe("Target branch name to push to."),
 	prTitle: z.string().optional().describe("Pull request title. Required if createPr is true."),
 	createPr: z.boolean().optional().default(false).describe("Whether to create a pull request after pushing."),
 	autoMerge: z.boolean().optional().default(false).describe("Whether to enable auto-merge on the created PR."),
-	repo: z
-		.string()
-		.optional()
-		.describe(
-			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Required when not calling from within a git repository.",
-		),
+	repoPath: repoPathParam,
 	dryRun: z.boolean().optional().default(false).describe("If true, report what would happen without executing."),
 });
 
@@ -58,13 +74,13 @@ export const githubPushNewBranch = {
 	name: "githubPushNewBranch",
 	title: "github-push-new-branch",
 	description:
-		"Push the current work to a new branch, optionally create a pull request and enable auto-merge. Requires the MCP client root to be a local git repository with a remote. If on the main branch, pushes commits to the new branch and resets main. If on a feature branch, pushes to the new branch name.",
+		"Push the current work to a new branch, optionally create a pull request and enable auto-merge. Requires a local git repository with a remote. If on the main branch, pushes commits to the new branch and resets main. If on a feature branch, pushes to the new branch name.",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
-		const { branchName, prTitle, createPr = false, autoMerge = false, repo, dryRun = false } = args;
-		const repoArgs = repo ? ["--repo", repo] : [];
+		const { branchName, prTitle, createPr = false, autoMerge = false, dryRun = false } = args;
+		const effectiveCwd = resolveRepoCwd(cwd, args.repoPath);
 
-		const ghStatus = await checkGHCLI(cwd);
+		const ghStatus = await checkGHCLI(effectiveCwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
 		if (!ghStatus.authenticated) throw new Error(`GitHub CLI not authenticated: ${ghStatus.error}`);
 
@@ -76,15 +92,19 @@ export const githubPushNewBranch = {
 			throw new Error("prTitle is required when createPr is true.");
 		}
 
-		const mainBranch = await detectMainBranch(cwd);
+		const mainBranch = await detectMainBranch(effectiveCwd);
+
+		// Derive OWNER/REPO from git remote for GitHub API calls
+		const ghRepo = await deriveGitHubRepo(effectiveCwd);
+		const repoArgs = ["--repo", ghRepo];
 
 		// Check for uncommitted changes
-		const statusResult = await runGit(cwd, ["status", "-s"]);
+		const statusResult = await runGit(effectiveCwd, ["status", "-s"]);
 		if (statusResult.stdout) {
 			throw new Error("You have uncommitted changes. Please commit or stash them first.");
 		}
 
-		const currentBranchResult = await runGit(cwd, ["branch", "--show-current"]);
+		const currentBranchResult = await runGit(effectiveCwd, ["branch", "--show-current"]);
 		const currentBranch = currentBranchResult.stdout;
 
 		const actions: string[] = [];
@@ -102,7 +122,7 @@ export const githubPushNewBranch = {
 				}
 			}
 			if (createPr) {
-				actions.push(`Would create PR: "${prTitle}" (${branchName} → ${mainBranch})`);
+				actions.push(`Would create PR: "${prTitle}" (${branchName} -> ${mainBranch})`);
 				if (autoMerge) actions.push("Would enable auto-merge");
 			}
 			return { data: { dryRun: true, actions, branchName, mainBranch, currentBranch } };
@@ -110,22 +130,22 @@ export const githubPushNewBranch = {
 
 		// Push the branch
 		if (currentBranch === mainBranch) {
-			const pushResult = await runGit(cwd, ["push", "-u", "origin", `${mainBranch}:${branchName}`]);
+			const pushResult = await runGit(effectiveCwd, ["push", "-u", "origin", `${mainBranch}:${branchName}`]);
 			if (pushResult.code !== 0) throw new Error(`git push failed: ${pushResult.stderr}`);
 
-			await runGit(cwd, ["branch", "-u", `origin/${mainBranch}`]);
-			await runGit(cwd, ["reset", "--hard", `origin/${mainBranch}`]);
+			await runGit(effectiveCwd, ["branch", "-u", `origin/${mainBranch}`]);
+			await runGit(effectiveCwd, ["reset", "--hard", `origin/${mainBranch}`]);
 
 			if (!createPr) {
-				await runGit(cwd, ["checkout", branchName]);
+				await runGit(effectiveCwd, ["checkout", branchName]);
 			}
 		} else {
-			const pushResult = await runGit(cwd, ["push", "-u", "origin", `${currentBranch}:${branchName}`]);
+			const pushResult = await runGit(effectiveCwd, ["push", "-u", "origin", `${currentBranch}:${branchName}`]);
 			if (pushResult.code !== 0) throw new Error(`git push failed: ${pushResult.stderr}`);
 
 			if (createPr) {
-				await runGit(cwd, ["checkout", mainBranch]);
-				await runGit(cwd, ["branch", "-d", currentBranch]);
+				await runGit(effectiveCwd, ["checkout", mainBranch]);
+				await runGit(effectiveCwd, ["branch", "-d", currentBranch]);
 			}
 		}
 
@@ -133,7 +153,7 @@ export const githubPushNewBranch = {
 		let prNumber: string | undefined;
 
 		if (createPr && prTitle) {
-			const prCreateOutput = await runGh(cwd, [
+			const prCreateOutput = await runGh(effectiveCwd, [
 				"pr",
 				"create",
 				"--base",
@@ -148,15 +168,14 @@ export const githubPushNewBranch = {
 			]);
 			prUrl = prCreateOutput.trim();
 
-			// Extract PR number
-			const prViewRaw = await runGh(cwd, ["pr", "view", branchName, "--json", "number", ...repoArgs]);
+			const prViewRaw = await runGh(effectiveCwd, ["pr", "view", branchName, "--json", "number", ...repoArgs]);
 			const prViewData = JSON.parse(prViewRaw) as { number: number };
 			prNumber = String(prViewData.number);
 
 			if (autoMerge && prNumber) {
-				const repoSettings = await getRepoSettings(cwd, repo);
+				const repoSettings = await getRepoSettings(effectiveCwd, ghRepo);
 				const mergeMode = repoSettings.allowMergeCommit ? "m" : repoSettings.allowRebaseMerge ? "r" : "s";
-				await enableAutoMerge(cwd, mergeMode, repo, prNumber);
+				await enableAutoMerge(effectiveCwd, mergeMode, ghRepo, prNumber);
 			}
 		}
 
