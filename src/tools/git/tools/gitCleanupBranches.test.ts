@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { githubCleanupBranches, parseBranchOutput } from "./githubCleanupBranches.ts";
+import { gitCleanupBranches, parseBranchOutput } from "./gitCleanupBranches.ts";
 
 describe("parseBranchOutput", () => {
 	it("parses a branch with gone remote", () => {
@@ -59,8 +59,8 @@ describe("parseBranchOutput", () => {
 	});
 });
 
-describe("githubCleanupBranches schema", () => {
-	const schema = githubCleanupBranches.schema;
+describe("gitCleanupBranches schema", () => {
+	const schema = gitCleanupBranches.schema;
 
 	it("accepts empty input", () => {
 		expect(schema.safeParse({}).success).toBe(true);

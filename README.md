@@ -87,7 +87,18 @@ Every tool exports `{ name, title, description, schema, handler }`:
 
 ## MCP Tools
 
-### GitHub (17 tools)
+### Git (4 tools)
+
+Local git tools that operate on the repository at the MCP client root.
+
+| Tool | Description | Mutable | dryRun |
+|------|-------------|---------|--------|
+| `gitLog` | Git log with parsed commits | No | - |
+| `gitStatus` | Working tree status (branch, staged, unstaged, untracked) | No | - |
+| `gitSummarizeActivity` | Summarize recent repo activity | No | - |
+| `gitCleanupBranches` | Delete merged branches | Yes | Yes |
+
+### GitHub (14 tools)
 
 All GitHub tools use the `gh` CLI under the hood.
 
@@ -97,15 +108,12 @@ All GitHub tools use the `gh` CLI under the hood.
 | `githubFetchPr` | Fetch PR details | No | - |
 | `githubListPr` | List pull requests | No | - |
 | `githubFetchIssue` | Fetch issue details | No | - |
-| `githubGitLog` | Git log with parsed commits | No | - |
-| `githubSummarizeActivity` | Summarize recent repo activity | No | - |
 | `githubFetchWorkflowRuns` | List workflow runs by branch | No | - |
 | `githubFetchWorkflowRun` | Single run details with jobs/steps/logs | No | - |
 | `githubAwaitWorkflowRun` | Poll a run until completion or timeout | No | - |
 | `githubPrComment` | Post a comment on a PR | Yes | Yes |
 | `githubApprovePr` | Approve and optionally merge PRs | Yes | Yes |
 | `githubApproveDependabot` | Approve Dependabot PRs | Yes | Yes |
-| `githubCleanupBranches` | Delete merged branches | Yes | Yes |
 | `githubPushNewBranch` | Create branch, push, open PR | Yes | Yes |
 | `githubRerunWorkflow` | Re-run a workflow (all or failed only) | Yes | Yes |
 | `githubCreateIssue` | Create a new issue | Yes | Yes |

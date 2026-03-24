@@ -103,7 +103,7 @@ const schema = z.object({
 		.string()
 		.optional()
 		.describe(
-			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused — this tool reads from the local git repository at the MCP client root.",
+			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused - this tool reads from the local git repository at the MCP client root.",
 		),
 	outputPath: z
 		.string()
@@ -111,9 +111,9 @@ const schema = z.object({
 		.describe("Optional path to write JSON output. If provided, returns path info instead of full data."),
 });
 
-export const githubGitLog = {
-	name: "githubGitLog",
-	title: "github-git-log",
+export const gitLog = {
+	name: "gitLog",
+	title: "git-log",
 	description:
 		"Fetch structured git log data. Supports count mode (-n) or range mode (-r). Requires the MCP client root to be a local git repository. Uses local git, not GitHub API.",
 	operation: "fetching git log",
