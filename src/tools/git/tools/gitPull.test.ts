@@ -101,6 +101,6 @@ describe("gitPull schema", () => {
 	});
 
 	it("accepts repo parameter", () => {
-		expect(schema.safeParse({ repo: "owner/repo" }).success).toBe(true);
+		expect(schema.safeParse({ repoPath: "/workspace/nyaascripts" }).success).toBe(true);
 	});
 });

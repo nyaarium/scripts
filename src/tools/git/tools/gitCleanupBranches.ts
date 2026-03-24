@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
 import { checkGHCLI } from "../../github/lib/checkGHCLI.ts";
-import { repoParam } from "../lib/repoSchema.ts";
+import { repoPathParam } from "../lib/repoSchema.ts";
 import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 function runGit(cwd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -61,7 +61,7 @@ export function parseBranchOutput(output: string): z.infer<typeof InputBranchSch
 }
 
 const schema = z.object({
-	repo: repoParam,
+	repoPath: repoPathParam,
 	dryRun: z.boolean().optional().describe("If true, report what would be deleted without actually deleting."),
 });
 
@@ -73,7 +73,7 @@ export const gitCleanupBranches = {
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
 		const { dryRun = false } = args;
-		const effectiveCwd = resolveRepoCwd(cwd, args.repo);
+		const effectiveCwd = resolveRepoCwd(cwd, args.repoPath);
 
 		const ghStatus = await checkGHCLI(effectiveCwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
