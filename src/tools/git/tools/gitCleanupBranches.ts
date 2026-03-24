@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
 import { checkGHCLI } from "../../github/lib/checkGHCLI.ts";
+import { repoParam } from "../lib/repoSchema.ts";
+import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 function runGit(cwd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
 	return new Promise((resolve) => {
@@ -59,12 +61,7 @@ export function parseBranchOutput(output: string): z.infer<typeof InputBranchSch
 }
 
 const schema = z.object({
-	repo: z
-		.string()
-		.optional()
-		.describe(
-			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused - this tool operates on the local git repository at the MCP client root.",
-		),
+	repo: repoParam,
 	dryRun: z.boolean().optional().describe("If true, report what would be deleted without actually deleting."),
 });
 
@@ -76,15 +73,16 @@ export const gitCleanupBranches = {
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
 		const { dryRun = false } = args;
+		const effectiveCwd = resolveRepoCwd(cwd, args.repo);
 
-		const ghStatus = await checkGHCLI(cwd);
+		const ghStatus = await checkGHCLI(effectiveCwd);
 		if (!ghStatus.available) throw new Error(`GitHub CLI not found: ${ghStatus.error}`);
 		if (!ghStatus.authenticated) throw new Error(`GitHub CLI not authenticated: ${ghStatus.error}`);
 
-		const fetchResult = await runGit(cwd, ["fetch", "--prune"]);
+		const fetchResult = await runGit(effectiveCwd, ["fetch", "--prune"]);
 		if (fetchResult.code !== 0) throw new Error(`git fetch --prune failed: ${fetchResult.stderr}`);
 
-		const branchResult = await runGit(cwd, [
+		const branchResult = await runGit(effectiveCwd, [
 			"branch",
 			"--format=%(refname:short)|%(upstream:short)|%(upstream:track)",
 			"--no-color",
@@ -104,7 +102,7 @@ export const gitCleanupBranches = {
 					deleted.push({ branch: b.name, reason: "remote gone" });
 					continue;
 				}
-				const result = await runGit(cwd, ["branch", "-D", b.name]);
+				const result = await runGit(effectiveCwd, ["branch", "-D", b.name]);
 				if (result.code === 0) {
 					deleted.push({ branch: b.name, reason: "remote gone" });
 				} else {
@@ -123,7 +121,7 @@ export const gitCleanupBranches = {
 				deleted.push({ branch: b.name, reason: b.upstream ? "merged" : "local-only" });
 				continue;
 			}
-			const result = await runGit(cwd, ["branch", "-d", b.name]);
+			const result = await runGit(effectiveCwd, ["branch", "-d", b.name]);
 			if (result.code === 0) {
 				deleted.push({ branch: b.name, reason: b.upstream ? "merged" : "local-only" });
 			} else {

@@ -2,6 +2,8 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
+import { repoParam } from "../lib/repoSchema.ts";
+import { resolveRepoCwd } from "../lib/resolveRepoCwd.ts";
 
 const OutputLogCommitSchema = z.object({
 	hash: z.string(),
@@ -99,12 +101,7 @@ const schema = z.object({
 		.optional()
 		.describe("Number of log entries to fetch (mutually exclusive with range)."),
 	range: z.string().optional().describe("Git range (single hash or hash..hash, mutually exclusive with count)."),
-	repo: z
-		.string()
-		.optional()
-		.describe(
-			"Full OWNER/REPO (e.g. 'octocat/hello-world'). Currently unused - this tool reads from the local git repository at the MCP client root.",
-		),
+	repo: repoParam,
 	outputPath: z
 		.string()
 		.optional()
@@ -123,7 +120,8 @@ export const gitLog = {
 		if (count !== undefined && range !== undefined) throw new Error("Cannot specify both count and range");
 		if (count === undefined && range === undefined) throw new Error("Either count or range is required");
 
-		const rawLogData = await runGitLog(cwd, count, range);
+		const effectiveCwd = resolveRepoCwd(cwd, args.repo);
+		const rawLogData = await runGitLog(effectiveCwd, count, range);
 		const commits = parseCommitData(rawLogData);
 		let data: unknown = OutputLogDataSchema.parse(commits);
 
