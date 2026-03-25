@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
-import { enableAutoMerge, getRepoSettings } from "../../github/lib/approvePr.ts";
+import { enableAutoMerge, getRepoSettings, manualMerge } from "../../github/lib/approvePr.ts";
 import { checkGHCLI } from "../../github/lib/checkGHCLI.ts";
 import { runGh } from "../../github/lib/runGh.ts";
 import { repoPathParam } from "../lib/repoSchema.ts";
@@ -53,6 +53,28 @@ export function parseOwnerRepoFromRemote(remoteUrl: string): string {
 	if (httpsMatch) return httpsMatch[1];
 
 	throw new Error(`Could not parse OWNER/REPO from remote URL: ${remoteUrl}`);
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchPrNumber(
+	cwd: string,
+	branchName: string,
+	repoArgs: string[],
+	maxAttempts = 3,
+): Promise<string | undefined> {
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		try {
+			const raw = await runGh(cwd, ["pr", "view", branchName, "--json", "number", ...repoArgs]);
+			const data = JSON.parse(raw) as { number: number };
+			return String(data.number);
+		} catch {
+			if (attempt < maxAttempts) await sleep(2000);
+		}
+	}
+	return undefined;
 }
 
 async function deriveGitHubRepo(cwd: string): Promise<string> {
@@ -152,6 +174,8 @@ export const gitPushNewBranch = {
 		let prUrl: string | undefined;
 		let prNumber: string | undefined;
 
+		let mergeStrategy: string | undefined;
+
 		if (createPr && prTitle) {
 			const prCreateOutput = await runGh(effectiveCwd, [
 				"pr",
@@ -168,14 +192,23 @@ export const gitPushNewBranch = {
 			]);
 			prUrl = prCreateOutput.trim();
 
-			const prViewRaw = await runGh(effectiveCwd, ["pr", "view", branchName, "--json", "number", ...repoArgs]);
-			const prViewData = JSON.parse(prViewRaw) as { number: number };
-			prNumber = String(prViewData.number);
+			prNumber = await fetchPrNumber(effectiveCwd, branchName, repoArgs);
 
 			if (autoMerge && prNumber) {
-				const repoSettings = await getRepoSettings(effectiveCwd, ghRepo);
-				const mergeMode = repoSettings.allowMergeCommit ? "m" : repoSettings.allowRebaseMerge ? "r" : "s";
-				await enableAutoMerge(effectiveCwd, mergeMode, ghRepo, prNumber);
+				try {
+					const repoSettings = await getRepoSettings(effectiveCwd, ghRepo);
+					const mergeMode = repoSettings.allowMergeCommit ? "m" : repoSettings.allowRebaseMerge ? "r" : "s";
+					await enableAutoMerge(effectiveCwd, mergeMode, ghRepo, prNumber);
+					mergeStrategy = "auto-merge";
+				} catch {
+					// Auto-merge fails without branch protection rules. Fall back to direct merge.
+					try {
+						await manualMerge(effectiveCwd, ghRepo, prNumber);
+						mergeStrategy = "direct-merge";
+					} catch (mergeError) {
+						mergeStrategy = `failed: ${(mergeError as Error).message}`;
+					}
+				}
 			}
 		}
 
@@ -188,6 +221,7 @@ export const gitPushNewBranch = {
 				prUrl,
 				prNumber,
 				autoMerge: autoMerge && !!prNumber,
+				mergeStrategy,
 			},
 		};
 	},
