@@ -87,7 +87,7 @@ Every tool exports `{ name, title, description, schema, handler }`:
 
 ## MCP Tools
 
-### Git (7 tools)
+### Git (9 tools)
 
 Local git tools that operate on the repository at the MCP client root.
 
@@ -95,9 +95,11 @@ Local git tools that operate on the repository at the MCP client root.
 |------|-------------|---------|--------|
 | `gitLog` | Git log with parsed commits | No | - |
 | `gitStatus` | Working tree status (branch, staged, unstaged, untracked) | No | - |
+| `gitStage` | Stage files for commit | Yes | Yes |
+| `gitCommit` | Create a commit from staged changes | Yes | Yes |
 | `gitFetch` | Fetch from remote and prune deleted refs | No | - |
 | `gitPull` | Pull changes from remote | No | - |
-| `gitPushNewBranch` | Create branch, push, open PR | Yes | Yes |
+| `gitPushNewBranch` | Move commits to new branch, optionally create PR | Yes | Yes |
 | `gitCleanupBranches` | Delete merged branches | Yes | Yes |
 | `gitSummarizeActivity` | Summarize recent repo activity | No | - |
 
