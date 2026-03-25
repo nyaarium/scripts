@@ -127,6 +127,14 @@ export async function getCurrentUser(cwd: string): Promise<Record<string, unknow
 	return JSON.parse(stdout);
 }
 
+export async function getPRAuthor(cwd: string, repo: string | undefined, prNumber: string): Promise<string> {
+	const args = ["pr", "view", prNumber, "--json", "author"];
+	if (repo) args.splice(2, 0, "--repo", repo);
+	const stdout = await runGh(cwd, args);
+	const data = JSON.parse(stdout) as { author: { login: string } };
+	return data.author.login;
+}
+
 export async function getExistingApproval(cwd: string, repo: string | undefined, prNumber: string): Promise<boolean> {
 	const path = `repos/:owner/:repo/pulls/${prNumber}/reviews`;
 	const stdout = await runGh(cwd, api(repo, path));
