@@ -3,7 +3,9 @@ import {
 	approvePR,
 	enableAutoMerge,
 	getCIStatus,
+	getCurrentUser,
 	getExistingApproval,
+	getPRAuthor,
 	getPRStatus,
 	getRepoSettings,
 	manualMerge,
@@ -61,24 +63,50 @@ export const githubApprovePr = {
 			}
 		}
 
+		let currentUserLogin: string | undefined;
+		try {
+			const user = await getCurrentUser(cwd);
+			currentUserLogin = (user as { login?: string }).login;
+		} catch {
+			// proceed without - self-approval detection will be skipped
+		}
+
 		for (const prNumber of prNumbers) {
 			try {
 				let alreadyApproved = false;
 				let authWarning: string | null = null;
-				try {
-					alreadyApproved = await getExistingApproval(cwd, repo, prNumber);
-				} catch (e) {
-					if (
-						(e as Error).message?.includes("authenticated") ||
-						(e as Error).message?.includes("NOT_AUTHENTICATED")
-					) {
-						authWarning = "GitHub CLI not authenticated - please run 'gh auth login'";
+				let isOwnPr = false;
+
+				// Check if this is the user's own PR
+				if (currentUserLogin) {
+					try {
+						const prAuthor = await getPRAuthor(cwd, repo, prNumber);
+						isOwnPr = prAuthor === currentUserLogin;
+					} catch {
+						// proceed without - will attempt approval normally
 					}
 				}
 
-				const result: Record<string, unknown> = alreadyApproved
-					? { success: true, prNumber, output: "Already approved", skipped: true }
-					: await approvePR(cwd, repo, prNumber);
+				if (isOwnPr) {
+					// Cannot approve own PR - skip approval step
+				} else {
+					try {
+						alreadyApproved = await getExistingApproval(cwd, repo, prNumber);
+					} catch (e) {
+						if (
+							(e as Error).message?.includes("authenticated") ||
+							(e as Error).message?.includes("NOT_AUTHENTICATED")
+						) {
+							authWarning = "GitHub CLI not authenticated - please run 'gh auth login'";
+						}
+					}
+				}
+
+				const result: Record<string, unknown> = isOwnPr
+					? { success: true, prNumber, output: "Skipped approval (own PR)", skippedApproval: true }
+					: alreadyApproved
+						? { success: true, prNumber, output: "Already approved", skipped: true }
+						: await approvePR(cwd, repo, prNumber);
 				if (authWarning) result.authWarning = authWarning;
 				results.push(result);
 
@@ -127,25 +155,43 @@ export const githubApprovePr = {
 						}
 
 						if (canProceed && mergeStrategy) {
-							if (mergeStrategy === "auto-merge") {
-								if (repoSettings?.allowMergeCommit) {
-									await enableAutoMerge(cwd, "m", repo, prNumber);
-								} else if (repoSettings?.allowRebaseMerge) {
-									await enableAutoMerge(cwd, "r", repo, prNumber);
-								} else if (repoSettings?.allowSquashMerge) {
-									await enableAutoMerge(cwd, "s", repo, prNumber);
+							try {
+								if (mergeStrategy === "auto-merge") {
+									if (repoSettings?.allowMergeCommit) {
+										await enableAutoMerge(cwd, "m", repo, prNumber);
+									} else if (repoSettings?.allowRebaseMerge) {
+										await enableAutoMerge(cwd, "r", repo, prNumber);
+									} else if (repoSettings?.allowSquashMerge) {
+										await enableAutoMerge(cwd, "s", repo, prNumber);
+									} else {
+										await manualMerge(cwd, repo, prNumber);
+									}
 								} else {
 									await manualMerge(cwd, repo, prNumber);
 								}
-							} else {
-								await manualMerge(cwd, repo, prNumber);
+								result.mergeResult = {
+									strategy: mergeStrategy,
+									message: mergeMessage,
+									ciStatus,
+									prStatus,
+								};
+							} catch (mergeErr) {
+								const errMsg = (mergeErr as Error).message ?? "";
+								const needsApproval =
+									errMsg.includes("review is required") ||
+									errMsg.includes("approved review") ||
+									errMsg.includes("REVIEW_REQUIRED");
+								if (isOwnPr && needsApproval) {
+									result.mergeResult = {
+										strategy: "awaiting-approval",
+										message: "Own PR - merge will proceed once another user approves",
+										ciStatus,
+										prStatus,
+									};
+								} else {
+									throw mergeErr;
+								}
 							}
-							result.mergeResult = {
-								strategy: mergeStrategy,
-								message: mergeMessage,
-								ciStatus,
-								prStatus,
-							};
 						} else {
 							result.mergeResult = {
 								strategy: "blocked",
