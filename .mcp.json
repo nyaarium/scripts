@@ -1,9 +1,0 @@
-{
-	"mcpServers": {
-		"nyaascripts": {
-			"command": "./nyaascripts",
-			"args": [],
-			"env": {}
-		}
-	}
-}
