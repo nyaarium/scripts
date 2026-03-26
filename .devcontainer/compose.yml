@@ -18,6 +18,7 @@ services:
       # Home
       - ../volumes/home:/home/vscode:cached
     networks:
+      default:
       agent-team-bridge-network:
         aliases:
           - nyaascripts
