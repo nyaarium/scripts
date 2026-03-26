@@ -49,7 +49,12 @@ export function parseCommitOutput(output: string): { hash: string; branch: strin
 }
 
 const schema = z.object({
-	message: z.string().min(1).describe("Commit message."),
+	message: z
+		.string()
+		.min(1)
+		.describe(
+			"Commit message. Prefer short, human-readable phrases. Verb first, no prefixes. If related to issues, end with (fixes #N) for bugfixes, (closes #N) for completed tasks, (related #N) to link without closing.",
+		),
 	repoPath: repoPathParam,
 	dryRun: z.boolean().optional().default(false).describe("If true, report what would be committed without doing it."),
 });

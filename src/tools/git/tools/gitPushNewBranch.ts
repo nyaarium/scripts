@@ -212,6 +212,15 @@ export const gitPushNewBranch = {
 			}
 		}
 
+		let hint: string | undefined;
+		if (createPr && currentBranch === mainBranch) {
+			if (mergeStrategy === "auto-merge") {
+				hint = `Local main has been reset to origin/main. Auto-merge is enabled. Await CI with \`githubAwaitWorkflowRun\`. If CI passes, \`gitPull\` to fast-forward. If CI fails, \`gitSwitchBranch\` to the PR branch to fix.`;
+			} else {
+				hint = `Local main has been reset to origin/main. Merge the PR with \`githubApprovePr\`, then await CI with \`githubAwaitWorkflowRun\`. If CI passes, \`gitPull\` to fast-forward. If CI fails, \`gitSwitchBranch\` to the PR branch to fix.`;
+			}
+		}
+
 		return {
 			data: {
 				branchName,
@@ -222,6 +231,7 @@ export const gitPushNewBranch = {
 				prNumber,
 				autoMerge: autoMerge && !!prNumber,
 				mergeStrategy,
+				hint,
 			},
 		};
 	},
