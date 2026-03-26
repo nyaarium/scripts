@@ -56,6 +56,11 @@ const schema = z.object({
 			"Commit message. Prefer short, human-readable phrases. Verb first, no prefixes. If related to issues, end with (fixes #N) for bugfixes, (closes #N) for completed tasks, (related #N) to link without closing.",
 		),
 	repoPath: repoPathParam,
+	amend: z
+		.boolean()
+		.optional()
+		.default(false)
+		.describe("If true, amend the previous commit instead of creating a new one."),
 	dryRun: z.boolean().optional().default(false).describe("If true, report what would be committed without doing it."),
 });
 
@@ -67,12 +72,16 @@ export const gitCommit = {
 	operation: "creating commit",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
-		const { message, dryRun = false } = args;
+		const { message, amend = false, dryRun = false } = args;
 		const effectiveCwd = resolveRepoCwd(cwd, args.repoPath);
 
+		const gitArgs = ["commit"];
+		if (amend) gitArgs.push("--amend");
+		if (dryRun) gitArgs.push("--dry-run");
+		gitArgs.push("-F", "-");
+
 		if (dryRun) {
-			// --dry-run shows what would be committed
-			const result = await runGit(effectiveCwd, ["commit", "--dry-run", "-F", "-"], message);
+			const result = await runGit(effectiveCwd, gitArgs, message);
 			if (result.code !== 0) throw new Error(`git commit --dry-run failed: ${result.stderr}`);
 			return {
 				data: OutputResultSchema.parse({
@@ -84,8 +93,7 @@ export const gitCommit = {
 			};
 		}
 
-		// Pass message via stdin (-F -) to avoid shell escaping issues with -m
-		const result = await runGit(effectiveCwd, ["commit", "-F", "-"], message);
+		const result = await runGit(effectiveCwd, gitArgs, message);
 		if (result.code !== 0) throw new Error(`git commit failed: ${result.stderr}`);
 
 		const parsed = parseCommitOutput(result.stdout);
