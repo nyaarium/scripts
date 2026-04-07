@@ -53,7 +53,7 @@ const schema = z.object({
 		.string()
 		.min(1)
 		.describe(
-			"Commit message. Prefer short, human-readable phrases. Verb first, no prefixes. If related to issues, end with (fixes #N) for bugfixes, (closes #N) for completed tasks, (related #N) to link without closing.",
+			"Commit message. One short phrase or sentence. Verb first, no prefixes. Do not use words like \"fix\" unless the human has confirmed the change is the correct solution; for unverified attempts, use words like \"attempt\" or \"try\" instead. If related to issues, end with (fixes #N) for bugfixes, (closes #N) for completed tasks, (related #N) to link without closing.",
 		),
 	repoPath: repoPathParam,
 	amend: z
@@ -68,7 +68,7 @@ export const gitCommit = {
 	name: "gitCommit",
 	title: "git-commit",
 	description:
-		"Create a git commit with the currently staged files. The commit message is passed via stdin to avoid shell escaping issues.",
+		"Create a git commit with the currently staged files. Prefer short, human-readable commit messages. Consider whether staged changes are a confirmed solution or an exploratory attempt, and reflect that in the message.",
 	operation: "creating commit",
 	schema,
 	async handler(cwd: string, args: z.infer<typeof schema>) {
