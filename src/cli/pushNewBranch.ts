@@ -2,7 +2,7 @@ import path from "node:path";
 import readline from "node:readline";
 import dotenv from "dotenv";
 import { checkGHCLI } from "../tools/github/lib/checkGHCLI.ts";
-import { detectMainBranch, githubPushNewBranch, slugifyBranchName } from "../tools/github/tools/githubPushNewBranch.ts";
+import { detectMainBranch, gitPushNewBranch, slugifyBranchName } from "../tools/git/tools/gitPushNewBranch.ts";
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 dotenv.config({ path: path.resolve(scriptDir, "../../.env") });
@@ -113,7 +113,7 @@ if (ghReady) {
 
 rl.close();
 
-const result = await githubPushNewBranch.handler(cwd, {
+const result = await gitPushNewBranch.handler(cwd, {
 	branchName,
 	prTitle: prTitle || undefined,
 	createPr,
