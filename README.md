@@ -179,7 +179,6 @@ Scripts that remain as standalone bash (not ported to MCP tools).
 | `devcontainer.sh` | Build/start/attach to devcontainer |
 | `devcontainer-up.sh` | Start devcontainer (headless) |
 | `devcontainer-down.sh` | Stop devcontainer |
-| `remote-daemon.sh` | Start Claude remote-control in devcontainer tmux |
 
 ## Development
 
