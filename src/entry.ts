@@ -1,8 +1,8 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { z } from "zod";
 import { toolsGit } from "./tools/git/index.ts";
 import { toolsGitHub } from "./tools/github/index.ts";
@@ -22,10 +22,8 @@ const scriptDir = path.dirname(process.execPath);
 
 process.chdir(scriptDir);
 
-dotenv.config({
-	path: path.join(scriptDir, ".env"),
-	quiet: true,
-});
+process.env.DOTENV_CONFIG_QUIET = "true";
+dotenv.config({ path: path.join(scriptDir, ".env") });
 
 const mcpServer = new McpServer({
 	name: "nyaascripts",

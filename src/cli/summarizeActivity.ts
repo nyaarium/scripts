@@ -1,9 +1,11 @@
-import path from "node:path";
 import dotenv from "dotenv";
+import path from "node:path";
 import { gitSummarizeActivity } from "../tools/git/tools/gitSummarizeActivity.ts";
 
 // Load .env from project root
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
+
+process.env.DOTENV_CONFIG_QUIET = "true";
 dotenv.config({ path: path.resolve(scriptDir, "../../.env") });
 
 const days = Number.parseInt(process.argv[2] ?? "7", 10);

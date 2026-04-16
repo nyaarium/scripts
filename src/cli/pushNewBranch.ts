@@ -1,10 +1,12 @@
+import dotenv from "dotenv";
 import path from "node:path";
 import readline from "node:readline";
-import dotenv from "dotenv";
-import { checkGHCLI } from "../tools/github/lib/checkGHCLI.ts";
 import { detectMainBranch, gitPushNewBranch, slugifyBranchName } from "../tools/git/tools/gitPushNewBranch.ts";
+import { checkGHCLI } from "../tools/github/lib/checkGHCLI.ts";
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
+
+process.env.DOTENV_CONFIG_QUIET = "true";
 dotenv.config({ path: path.resolve(scriptDir, "../../.env") });
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
