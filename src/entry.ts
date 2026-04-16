@@ -40,9 +40,14 @@ function registerTool(tool: McpTool) {
 		},
 		async (args) => {
 			try {
-				const roots = (await mcpServer.server.listRoots()) as { roots: Array<{ uri: string }> };
-				if (!roots.roots || roots.roots.length === 0) throw new Error("listRoots: no roots");
-				const cwd = fileURLToPath(roots.roots[0].uri);
+				let cwd: string;
+				try {
+					const roots = (await mcpServer.server.listRoots()) as { roots: Array<{ uri: string }> };
+					if (!roots.roots || roots.roots.length === 0) throw new Error("listRoots: no roots");
+					cwd = fileURLToPath(roots.roots[0].uri);
+				} catch {
+					cwd = process.cwd();
+				}
 				const result = await tool.handler(cwd, args);
 				return {
 					content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
