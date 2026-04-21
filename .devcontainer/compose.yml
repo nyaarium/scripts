@@ -19,9 +19,9 @@ services:
       - ../volumes/home:/home/vscode:cached
     networks:
       default:
-      agent-team-bridge-network:
+      switchboard-network:
         aliases:
           - nyaascripts
 networks:
-  agent-team-bridge-network:
-    name: agent-team-bridge
+  switchboard-network:
+    name: switchboard
