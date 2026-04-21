@@ -19,7 +19,7 @@ cat >> "$HOME/.bashrc" <<'BASHRC_EOF'
 
 
 # ==== SSH Agent - Start ====
-SSH_AGENT_SOCK="/tmp/ssh-agent-$(id -u).sock"
+SSH_AGENT_SOCK="/tmp/ssh-agent.sock"
 SSH_AGENT_ENV="$HOME/.ssh/ssh-agent"
 
 # Prefer GPG agent if available and has keys
